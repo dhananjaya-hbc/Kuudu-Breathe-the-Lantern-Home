@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Content Security Policy:
+      - Only this app's own files may load; nothing from the network.
+      - worker-src allows blob: because the SmartSpectra SDK runs a Web Worker from a blob: URL.
+      - style-src allows inline styles for Vite's dev-mode CSS injection.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kuudu: Breathe the Lantern Home</title>
+  </head>
+  <body>
+    <!-- The game is drawn here. -->
+    <canvas id="game"></canvas>
+
+    <!--
+      Camera feed for the SDK. Hidden from the player; it is never recorded or saved.
+      The visible "Camera on" indicator is part of the UI layer.
+    -->
+    <video id="camera" autoplay muted playsinline hidden></video>
+
+    <!-- Screens, hints and the camera indicator are rendered into this layer. -->
+    <div id="ui"></div>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

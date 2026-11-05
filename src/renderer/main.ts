@@ -16,7 +16,8 @@ const ctx = canvas.getContext('2d')!;
 const WINDOW_MS = 20_000;
 
 const samples: BreathSample[] = [];
-let delayMs: number | null = null;
+/** Recent breath-to-screen delays: [arrival time, delay ms]. */
+const delays: [number, number][] = [];
 let sampleRateHz = 0;
 let rateText = '–';
 let hintText = 'none';
@@ -58,15 +59,19 @@ async function init(): Promise<void> {
   input.on('samples', (batch) => {
     samples.push(...batch);
     const newest = batch.at(-1)!;
-    delayMs = Date.now() - newest.timeMs;
     const cutoff = newest.timeMs - WINDOW_MS;
     while (samples.length && samples[0]!.timeMs < cutoff) samples.shift();
     const span = (newest.timeMs - samples[0]!.timeMs) / 1000;
     sampleRateHz = span > 0 ? (samples.length - 1) / span : 0;
     console.log(
-      `[trace] +${batch.length} samples, value=${newest.value.toFixed(4)}, ` +
-        `stable=${newest.stable}, delay=${delayMs.toFixed(0)} ms`,
+      `[trace] +${batch.length} samples, value=${newest.value.toFixed(4)}, stable=${newest.stable}`,
     );
+  });
+  input.on('latency', (ms) => {
+    const now = performance.now();
+    delays.push([now, ms]);
+    while (delays.length && delays[0]![0] < now - 10_000) delays.shift();
+    console.log(`[latency] ${ms.toFixed(0)} ms`);
   });
   input.on('rate', (r) => {
     rateText = `${r.breathsPerMinute.toFixed(1)} br/min (confidence ${r.confidence.toFixed(0)})`;
@@ -90,7 +95,7 @@ async function init(): Promise<void> {
     if (running) return stop();
     errorText = '';
     samples.length = 0;
-    delayMs = null;
+    delays.length = 0;
     toggle.disabled = true;
     try {
       await input.start();
@@ -110,6 +115,14 @@ async function init(): Promise<void> {
   window.addEventListener('beforeunload', () => input.destroy());
 }
 
+function delayText(): string {
+  if (!delays.length) return running ? 'measuring…' : '–';
+  const values = delays.map(([, ms]) => ms);
+  const s = (ms: number): string => `${(ms / 1000).toFixed(2)} s`;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  return `now ${s(values.at(-1)!)}  avg ${s(avg)}  worst ${s(Math.max(...values))}`;
+}
+
 function draw(): void {
   const w = canvas.width;
   const h = canvas.height;
@@ -117,7 +130,7 @@ function draw(): void {
 
   stats.textContent = [
     `samples (20 s): ${samples.length}  ~${sampleRateHz.toFixed(1)} Hz`,
-    `delay:          ${delayMs === null ? '–' : `${(delayMs / 1000).toFixed(2)} s`}`,
+    `delay (10 s):   ${delayText()}`,
     `breathing rate: ${rateText}`,
     `hint:           ${hintText}`,
     errorText ? `error:          ${errorText}` : '',

@@ -72,6 +72,12 @@ export class CameraBreathInput implements BreathInput {
   private readonly sdk: SmartSpectraSDK;
   private lastSampleMs = 0;
   private lastHint: InputHint | null = null;
+  /**
+   * Frame timestamp (ms, SDK clock) → local time it was sent (performance.now()).
+   * Sample timestamps use the same SDK clock as frames, so matching a sample to
+   * its frame gives the real breath-to-screen delay. Insertion-ordered.
+   */
+  private readonly frameSentAt = new Map<number, number>();
 
   constructor(
     apiKey: string,
@@ -81,6 +87,14 @@ export class CameraBreathInput implements BreathInput {
 
     this.sdk.on('streamAvailable', (stream) => {
       this.video.srcObject = stream;
+    });
+    this.sdk.on('frameSentThrough', (sent, timestampUs) => {
+      if (!sent) return;
+      this.frameSentAt.set(Math.round(timestampUs / 1000), performance.now());
+      // Keep about 20 s of frames at 30 fps.
+      if (this.frameSentAt.size > 600) {
+        this.frameSentAt.delete(this.frameSentAt.keys().next().value!);
+      }
     });
     this.sdk.on('metrics', (buf) => this.handleMetrics(buf));
     this.sdk.on('validationStatus', (code) => this.handleValidation(code));
@@ -96,6 +110,7 @@ export class CameraBreathInput implements BreathInput {
   async start(): Promise<void> {
     this.lastSampleMs = 0;
     this.lastHint = null;
+    this.frameSentAt.clear();
     await this.sdk.start();
   }
 
@@ -126,6 +141,8 @@ export class CameraBreathInput implements BreathInput {
     if (newest) {
       this.lastSampleMs = newest.timeMs;
       this.emitter.emit('samples', samples);
+      const sentAt = this.findFrameSentAt(newest.timeMs);
+      if (sentAt !== null) this.emitter.emit('latency', performance.now() - sentAt);
     }
 
     const rate = breathing.rate?.at(-1);
@@ -141,6 +158,20 @@ export class CameraBreathInput implements BreathInput {
     if (amplitude && typeof amplitude.value === 'number') {
       this.emitter.emit('amplitude', amplitude.value, toMs(amplitude.timestamp));
     }
+  }
+
+  /** Local send time of the frame closest to `timeMs` (within one frame), or null. */
+  private findFrameSentAt(timeMs: number): number | null {
+    let best: number | null = null;
+    let bestGap = 20; // ms; frames are ~33 ms apart at 30 fps
+    for (const [frameMs, sentAt] of this.frameSentAt) {
+      const gap = Math.abs(frameMs - timeMs);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = sentAt;
+      }
+    }
+    return best;
   }
 
   private handleValidation(code: ValidationCodeValue): void {

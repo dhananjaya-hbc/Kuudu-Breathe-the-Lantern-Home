@@ -56,6 +56,8 @@ export interface BreathInputEvents {
   amplitude: (value: number, timeMs: number) => void;
   hint: (hint: InputHint | null) => void;
   error: (error: InputError) => void;
+  /** Camera only: time from a frame being sent to its breathing sample arriving. */
+  latency: (ms: number) => void;
 }
 
 export interface BreathInput {

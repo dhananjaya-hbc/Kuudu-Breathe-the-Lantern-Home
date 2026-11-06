@@ -45,6 +45,20 @@ describe('TargetWave', () => {
     expect(times).toEqual([0, 4_000, 8_000, 13_000, 18_000, 23_000, 28_000]);
   });
 
+  it('creates each gate exactly once when asked for in small frame-sized chunks', () => {
+    const wave = new TargetWave(7.5);
+    wave.setPace(6, 10_000);
+    const times: number[] = [];
+    let from = 0;
+    for (let to = 1000 / 60; to <= 60_000; to += 1000 / 60) {
+      times.push(...wave.gatesBetween(from, to).map((g) => g.atMs));
+      from = to;
+    }
+    const all = wave.gatesBetween(0, from).map((g) => g.atMs);
+    expect(times).toEqual(all);
+    expect(new Set(times).size).toBe(times.length);
+  });
+
   it('returns no gates for an empty range', () => {
     expect(new TargetWave().gatesBetween(5_000, 5_000)).toEqual([]);
   });

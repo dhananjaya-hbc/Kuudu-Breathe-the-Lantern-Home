@@ -71,10 +71,13 @@ export class TargetWave {
     const gates: WaveGate[] = [];
     const start = Math.max(fromMs, skipFirstMs);
     if (toMs <= start) return gates;
-    // Peaks and troughs fall on half-cycle phases.
-    let k = Math.ceil(this.phaseAt(start) * 2 - 1e-9);
+    // Peaks and troughs fall on half-cycle phases. Each gate's time is always
+    // computed the same way from its index `k`, so back-to-back ranges split
+    // gates exactly: a gate belongs to a range only if start <= time < end.
+    // Start one index early in case rounding put the first gate just past `start`.
+    let k = Math.ceil(this.phaseAt(start) * 2) - 1;
     for (;;) {
-      const atMs = this.timeAtPhase(k / 2, start);
+      const atMs = this.timeAtPhase(k / 2);
       if (atMs >= toMs) break;
       if (atMs >= start) {
         const peak = k % 2 !== 0;
@@ -85,14 +88,13 @@ export class TargetWave {
     return gates;
   }
 
-  /** Earliest time at or after `notBeforeMs` when the phase reaches `phase`. */
-  private timeAtPhase(phase: number, notBeforeMs: number): number {
+  /** The time when the phase reaches `phase`; the phase only ever increases. */
+  private timeAtPhase(phase: number): number {
     for (let i = 0; i < this.segments.length; i++) {
       const s = this.segments[i]!;
       const next = this.segments[i + 1];
       const atMs = s.fromMs + (phase - s.phaseAtFrom) * s.cycleMs;
-      const inSegment = atMs >= s.fromMs && (next === undefined || atMs < next.fromMs);
-      if (inSegment && atMs >= notBeforeMs - 1e-6) return Math.max(atMs, notBeforeMs);
+      if (next === undefined || atMs < next.fromMs) return atMs;
     }
     return Infinity;
   }

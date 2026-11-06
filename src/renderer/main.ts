@@ -1,50 +1,45 @@
-// Renderer entry point.
+// Renderer entry point — Phase 1 milestone screen.
 //
-// For now this is the Phase 1 signal test screen: start the camera, then watch
-// the live chest waveform, the breathing rate and SDK hints, and run the guided
-// pace test to measure the real breath-to-screen delay and direction.
-// It will grow into the full app (consent → calibration → game).
+// Start camera → guided calibration (~19 s) → a glowing lantern dot that
+// rises as you breathe in and drifts down as you breathe out. SDK hints show
+// as a banner and pause the dot. Press D to toggle the waveform overlay.
+//
+// Phase 2 replaces this with the full game (consent, river, gates, scoring).
 
 import { CameraBreathInput } from './sdk';
-import type { BreathSample } from './input/types';
-import {
-  analysePaceTest,
-  guideAt,
-  isInhale,
-  PACE_DURATION_MS,
-  type PacePoint,
-} from './debug/pace-test';
+import { BreathSignal } from './signal';
+import { Calibration, type CalibrationResult } from './calibration';
+import { CALIBRATION_FAILURES, HintDisplay } from './ui/hints';
+import { drawTraceGraph } from './debug/trace-graph';
+
+type Mode = 'off' | 'calibrating' | 'playing' | 'failed';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const video = document.querySelector<HTMLVideoElement>('#camera')!;
 const ui = document.querySelector<HTMLDivElement>('#ui')!;
 const ctx = canvas.getContext('2d')!;
 
-/** How much waveform history to draw. */
-const WINDOW_MS = 20_000;
+const signal = new BreathSignal();
+const calibration = new Calibration();
+const hints = new HintDisplay(ui);
 
-const samples: BreathSample[] = [];
-/** Recent frame-to-sample pipeline times: [arrival time, ms]. Not the full delay. */
-const delays: [number, number][] = [];
-/** performance.now() when the pace test started, or null when it is not running. */
-let paceStart: number | null = null;
-const pacePoints: PacePoint[] = [];
-let paceText = 'not run yet';
-let sampleRateHz = 0;
+let mode: Mode = 'off';
+let showGraph = true;
+let lastCalibration: CalibrationResult | null = null;
 let rateText = '–';
-let hintText = 'none';
-let errorText = '';
-let running = false;
+let lastFrame = performance.now();
 
-ui.innerHTML = `
-  <div style="position:fixed;top:16px;left:16px;font:14px/1.5 system-ui;color:#f5e6c8">
-    <button id="toggle" style="font:inherit;padding:6px 14px">Start camera</button>
-    <button id="pace" disabled style="font:inherit;padding:6px 14px">Pace test (32 s)</button>
-    <span id="camera-on" hidden style="margin-left:12px;color:#ff9a3c">● Camera on</span>
-    <pre id="stats" style="margin-top:8px"></pre>
-  </div>`;
+ui.insertAdjacentHTML(
+  'beforeend',
+  `<div style="position:fixed;top:16px;left:16px;font:14px/1.5 system-ui;color:#f5e6c8">
+     <button id="toggle" style="font:inherit;padding:6px 14px">Start camera</button>
+     <button id="recalibrate" hidden style="font:inherit;padding:6px 14px">Recalibrate</button>
+     <span id="camera-on" hidden style="margin-left:12px;color:#ff9a3c">● Camera on</span>
+     <pre id="stats" style="margin-top:8px"></pre>
+   </div>`,
+);
 const toggle = ui.querySelector<HTMLButtonElement>('#toggle')!;
-const paceButton = ui.querySelector<HTMLButtonElement>('#pace')!;
+const recalibrate = ui.querySelector<HTMLButtonElement>('#recalibrate')!;
 const cameraOn = ui.querySelector<HTMLSpanElement>('#camera-on')!;
 const stats = ui.querySelector<HTMLPreElement>('#stats')!;
 
@@ -60,10 +55,33 @@ function resize(): void {
 window.addEventListener('resize', resize);
 resize();
 
+function startCalibration(): void {
+  signal.reset();
+  calibration.start(performance.now());
+  mode = 'calibrating';
+  recalibrate.hidden = true;
+}
+
+function finishCalibration(now: number): void {
+  const result = calibration.finish();
+  lastCalibration = result;
+  console.log('[calibration]', result);
+  recalibrate.hidden = false;
+  if (result.ok) {
+    signal.setInvert(result.invert);
+    signal.setMinRange(result.minRange);
+    mode = 'playing';
+  } else {
+    hints.message(CALIBRATION_FAILURES[result.reason], now, 8_000);
+    recalibrate.textContent = 'Try again';
+    mode = 'failed';
+  }
+}
+
 async function init(): Promise<void> {
   const apiKey = await window.kuudu.getApiKey();
   if (!apiKey) {
-    errorText = 'No API key found. Add SMARTSPECTRA_API_KEY to .env and restart.';
+    stats.textContent = 'No API key found. Add SMARTSPECTRA_API_KEY to .env and restart.';
     toggle.disabled = true;
     return;
   }
@@ -71,168 +89,174 @@ async function init(): Promise<void> {
   const input = new CameraBreathInput(apiKey, video);
 
   input.on('samples', (batch) => {
-    samples.push(...batch);
-    const newest = batch.at(-1)!;
-    const cutoff = newest.timeMs - WINDOW_MS;
-    while (samples.length && samples[0]!.timeMs < cutoff) samples.shift();
-    const span = (newest.timeMs - samples[0]!.timeMs) / 1000;
-    sampleRateHz = span > 0 ? (samples.length - 1) / span : 0;
-    if (paceStart !== null) {
-      // Each sample's on-screen time: now for the newest, earlier ones spaced by their timestamps.
-      const shownAt = performance.now() - paceStart;
-      for (const s of batch) {
-        pacePoints.push({ elapsedMs: shownAt - (newest.timeMs - s.timeMs), value: s.value });
-      }
-    }
-    console.log(
-      `[trace] +${batch.length} samples, value=${newest.value.toFixed(4)}, stable=${newest.stable}`,
-    );
-  });
-  input.on('latency', (ms) => {
-    const now = performance.now();
-    delays.push([now, ms]);
-    while (delays.length && delays[0]![0] < now - 10_000) delays.shift();
-    console.log(`[latency] ${ms.toFixed(0)} ms`);
+    signal.push(batch);
+    if (mode === 'calibrating') calibration.addSamples(batch, performance.now());
   });
   input.on('rate', (r) => {
     rateText = `${r.breathsPerMinute.toFixed(1)} br/min (confidence ${r.confidence.toFixed(0)})`;
   });
-  input.on('hint', (h) => {
-    hintText = h ?? 'none';
-  });
-  input.on('error', (e) => {
-    errorText = e.message;
-  });
+  input.on('hint', (h) => hints.set(h, performance.now()));
+  input.on('error', (e) => hints.message(e.message, performance.now(), 10_000));
 
   const stop = async (): Promise<void> => {
-    if (!running) return;
-    running = false;
-    paceStart = null;
-    paceButton.disabled = true;
+    if (mode === 'off') return;
+    mode = 'off';
     toggle.textContent = 'Start camera';
+    recalibrate.hidden = true;
     cameraOn.hidden = true;
+    hints.clear();
+    signal.reset();
     await input.stop();
   };
 
   toggle.addEventListener('click', async () => {
-    if (running) return stop();
-    errorText = '';
-    samples.length = 0;
-    delays.length = 0;
+    if (mode !== 'off') return stop();
     toggle.disabled = true;
     try {
       await input.start();
-      running = true;
-      paceButton.disabled = false;
       toggle.textContent = 'Stop camera (Esc)';
       cameraOn.hidden = false;
+      startCalibration();
     } catch (e) {
-      errorText = e instanceof Error ? e.message : String(e);
+      hints.message(e instanceof Error ? e.message : String(e), performance.now(), 10_000);
     } finally {
       toggle.disabled = false;
     }
   });
 
-  paceButton.addEventListener('click', () => {
-    pacePoints.length = 0;
-    paceStart = performance.now();
-    paceButton.disabled = true;
-    paceText = 'running… follow the guide dot on the right';
+  recalibrate.addEventListener('click', () => {
+    recalibrate.textContent = 'Recalibrate';
+    startCalibration();
   });
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') void stop();
+    if (e.key === 'd' || e.key === 'D') showGraph = !showGraph;
   });
   window.addEventListener('beforeunload', () => input.destroy());
 }
 
-function delayText(): string {
-  if (!delays.length) return running ? 'measuring…' : '–';
-  const values = delays.map(([, ms]) => ms);
-  const s = (ms: number): string => `${(ms / 1000).toFixed(2)} s`;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  return `now ${s(values.at(-1)!)}  avg ${s(avg)}  worst ${s(Math.max(...values))}`;
+function calibrationText(): string {
+  const c = lastCalibration;
+  if (!c) return 'not run yet';
+  if (!c.ok) return `failed: ${c.reason} (match ${c.match.toFixed(2)})`;
+  return (
+    `match ${c.match.toFixed(2)}, delay ${(c.delayMs / 1000).toFixed(2)} s, ` +
+    `breath size ${c.breathSize.toPrecision(3)}, ${c.invert ? 'flipped' : 'not flipped'}`
+  );
 }
 
-function draw(): void {
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
+function drawCalibration(w: number, h: number, now: number): void {
+  const g = calibration.guide(now);
+  const dpr = devicePixelRatio;
+  const x = w / 2;
+  const top = h * 0.22;
+  const height = h * 0.5;
 
-  stats.textContent = [
-    `samples (20 s): ${samples.length}  ~${sampleRateHz.toFixed(1)} Hz`,
-    `pipeline:       ${delayText()}  (frame done → sample, not full delay)`,
-    `pace test:      ${paceText}`,
-    `breathing rate: ${rateText}`,
-    `hint:           ${hintText}`,
-    errorText ? `error:          ${errorText}` : '',
-  ].join('\n');
-
-  if (samples.length > 1) {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const s of samples) {
-      min = Math.min(min, s.value);
-      max = Math.max(max, s.value);
-    }
-    const range = max - min || 1;
-    const end = samples.at(-1)!.timeMs;
-    const top = h * 0.3;
-    const height = h * 0.6;
-
-    ctx.lineWidth = 3 * devicePixelRatio;
-    ctx.strokeStyle = '#ffb347';
-    ctx.beginPath();
-    samples.forEach((s, i) => {
-      const x = w - ((end - s.timeMs) / WINDOW_MS) * w;
-      const y = top + height - ((s.value - min) / range) * height;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
-
-  if (paceStart !== null) drawPaceGuide(w, h, performance.now() - paceStart);
-
-  requestAnimationFrame(draw);
-}
-
-/** Draws the guide dot and finishes the pace test when time is up. */
-function drawPaceGuide(w: number, h: number, elapsedMs: number): void {
-  if (elapsedMs >= PACE_DURATION_MS) {
-    paceStart = null;
-    paceButton.disabled = !running;
-    const result = analysePaceTest(pacePoints);
-    paceText = result
-      ? `delay ${(result.delayMs / 1000).toFixed(2)} s, match ${result.match.toFixed(2)}, ` +
-        `${result.upIsInhale ? 'up = breathe in ✓' : 'up = breathe OUT (flipped)'}`
-      : 'not enough data, try again';
-    console.log('[pace test]', result);
-    return;
-  }
-
-  const x = w - 120 * devicePixelRatio;
-  const top = h * 0.3;
-  const height = h * 0.6;
-  const y = top + height - guideAt(elapsedMs) * height;
-
-  ctx.strokeStyle = 'rgba(245, 230, 200, 0.25)';
-  ctx.lineWidth = 2 * devicePixelRatio;
+  ctx.strokeStyle = 'rgba(245, 230, 200, 0.2)';
+  ctx.lineWidth = 2 * dpr;
   ctx.beginPath();
   ctx.moveTo(x, top);
   ctx.lineTo(x, top + height);
   ctx.stroke();
 
+  const y = top + height - g.height * height;
   ctx.fillStyle = '#7fd4ff';
+  ctx.shadowColor = '#7fd4ff';
+  ctx.shadowBlur = 30 * dpr;
   ctx.beginPath();
-  ctx.arc(x, y, 18 * devicePixelRatio, 0, Math.PI * 2);
+  ctx.arc(x, y, 20 * dpr, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  const labels = {
+    ready: 'Get ready… breathe normally',
+    in: 'Breathe in',
+    out: 'Breathe out',
+    done: '',
+  };
+  const label = hints.paused ? 'Waiting for a clear view…' : labels[g.phase];
+  ctx.fillStyle = '#f5e6c8';
+  ctx.font = `${26 * dpr}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, top - 36 * dpr);
+  ctx.font = `${15 * dpr}px system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.7)';
+  ctx.fillText('Follow the light to calibrate', x, top + height + 40 * dpr);
+
+  const barWidth = 240 * dpr;
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.15)';
+  ctx.fillRect(x - barWidth / 2, top + height + 60 * dpr, barWidth, 4 * dpr);
+  ctx.fillStyle = '#7fd4ff';
+  ctx.fillRect(x - barWidth / 2, top + height + 60 * dpr, barWidth * g.progress, 4 * dpr);
+  ctx.textAlign = 'start';
+}
+
+function drawLantern(w: number, h: number, dt: number): void {
+  const dpr = devicePixelRatio;
+  // Hold the lantern still while the signal can't be trusted.
+  const height = hints.paused ? signal.height : signal.update(dt);
+  const x = w * 0.35;
+  const top = h * 0.15;
+  const range = h * 0.55;
+  const y = top + (1 - height) * range;
+  const r = 26 * dpr;
+
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 4);
+  glow.addColorStop(0, hints.paused ? 'rgba(255, 179, 71, 0.15)' : 'rgba(255, 179, 71, 0.45)');
+  glow.addColorStop(1, 'rgba(255, 179, 71, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 4, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.font = `${18 * devicePixelRatio}px system-ui`;
+  ctx.fillStyle = hints.paused ? '#8a6a45' : '#ffcf7a';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.7)';
+  ctx.font = `${16 * dpr}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(isInhale(elapsedMs) ? 'Breathe in' : 'Breathe out', x, top - 24 * devicePixelRatio);
-  const left = Math.ceil((PACE_DURATION_MS - elapsedMs) / 1000);
-  ctx.fillText(`${left} s`, x, top + height + 40 * devicePixelRatio);
+  ctx.fillText('Breathe in to rise · breathe out to drift down', w / 2, top + range + 50 * dpr);
+  ctx.textAlign = 'start';
+}
+
+function draw(): void {
+  const now = performance.now();
+  const dt = Math.min(100, now - lastFrame);
+  lastFrame = now;
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  hints.update(now);
+
+  if (mode === 'calibrating') {
+    // Calibration only counts while the view is clear; restart it if not.
+    if (hints.paused) calibration.start(now);
+    else if (calibration.isDone(now)) finishCalibration(now);
+    if (mode === 'calibrating') drawCalibration(w, h, now);
+  }
+  if (mode === 'playing') drawLantern(w, h, dt);
+
+  if (showGraph && mode !== 'off') {
+    const dpr = devicePixelRatio;
+    drawTraceGraph(
+      ctx,
+      { x: 16 * dpr, y: h - 170 * dpr, width: w - 32 * dpr, height: 150 * dpr },
+      signal.history,
+      { scale: dpr },
+    );
+  }
+
+  stats.textContent = [
+    `breathing rate: ${rateText}`,
+    `calibration:    ${calibrationText()}`,
+    `signal ready:   ${signal.ready ? 'yes' : 'warming up'}`,
+    'D = toggle waveform · Esc = stop camera',
+  ].join('\n');
+
+  requestAnimationFrame(draw);
 }
 
 void init();

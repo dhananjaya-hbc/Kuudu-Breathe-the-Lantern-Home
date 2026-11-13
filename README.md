@@ -47,7 +47,8 @@ Then choose **Play with keyboard**.
 
 3. Run `npm run dev` and choose **Play with camera**.
 4. Read the consent screen and press **Start camera**. Allow camera access if your system asks.
-5. Follow the blue light for about 19 seconds to calibrate, then breathe the lantern home.
+5. Breathe naturally for a few seconds while the signal settles (up to 30 s), then follow the
+   blue light for about 19 seconds to calibrate, and breathe the lantern home.
 
 For the best signal, sit about an arm's length from the camera in even, front-facing light, with
 your shoulders and chest in view. The game shows a hint and pauses if it can't see you clearly.
@@ -82,7 +83,9 @@ Breath is the game controller, so the signal is used live, not as a summary.
 
 Only these two metrics are requested. SDK telemetry is turned off.
 
-Before each camera run, a **guided calibration** (two slow breaths following a light) measures
+Presage notes that the breathing waveform needs up to 30 seconds to become reliable, so each
+camera run starts with a short **settling-in** step. It ends when the SDK marks the signal stable
+(or after 30 s). Then a **guided calibration** (two slow breaths following a light) measures
 the direction of the signal, the player's breath size, and the end-to-end delay. Scoring is shifted
 by that delay, so signal lag never counts against the player ([`calibration.ts`](src/renderer/calibration.ts)).
 

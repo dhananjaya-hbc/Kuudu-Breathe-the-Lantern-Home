@@ -53,6 +53,12 @@ export interface EndScreenData {
   newBest: boolean;
   best: HighScore | null;
   ribbon: readonly RibbonPoint[];
+  /**
+   * Average breathing pace from the SmartSpectra breathing rate (confident
+   * readings only), and the run's target pace. Null in keyboard mode or when
+   * there were no confident readings.
+   */
+  pace: { breathsPerMinute: number; target: string } | null;
 }
 
 export interface EndScreenActions {
@@ -137,6 +143,12 @@ export class EndScreen {
       ['Time glowing', `${Math.round(s.timeInGlow * 100)}%`],
       ['Rhythm match', `${Math.round(s.averageMatch * 100)}%`],
     ];
+    if (data.pace) {
+      rows.push([
+        'Your pace',
+        `${data.pace.breathsPerMinute.toFixed(1)} breaths/min · target ${data.pace.target}`,
+      ]);
+    }
     this.lines.replaceChildren(...rows.map(([label, value]) => row(label, value)), bestLine(data));
 
     this.card.style.display = 'block';

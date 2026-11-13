@@ -1,0 +1,260 @@
+/* Kuudu UI: warm lantern light on a dark blue night. */
+
+:root {
+  --night: #0b1630;
+  --night-deep: #060d22;
+  --card: rgba(8, 16, 38, 0.9);
+  --paper: #f5e6c8;
+  --paper-dim: rgba(245, 230, 200, 0.72);
+  --saffron: #ffb347;
+  --gold: #ffc15e;
+  --rose: #ff8fa3;
+  --line: rgba(255, 179, 71, 0.35);
+  --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--night);
+  color: var(--paper);
+  font: 16px/1.5 var(--font);
+}
+
+#game {
+  display: block;
+}
+
+/* Full-screen overlays (menu, consent, settings). */
+.k-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 13, 34, 0.35);
+}
+
+.k-overlay[hidden] {
+  display: none;
+}
+
+.k-card {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 28px 32px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+}
+
+.k-card h2 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffe0a3;
+}
+
+.k-lead {
+  margin: 0 0 18px;
+  color: var(--paper-dim);
+}
+
+.k-facts {
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.k-facts dt {
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.k-facts dd {
+  margin: 2px 0 0;
+  color: var(--paper);
+}
+
+.k-note {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--paper-dim);
+}
+
+.k-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* Buttons. */
+.k-btn {
+  font: 600 15px var(--font);
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 230, 200, 0.35);
+  background: rgba(245, 230, 200, 0.06);
+  color: var(--paper);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.1s;
+}
+
+.k-btn:hover:not(:disabled) {
+  background: rgba(245, 230, 200, 0.14);
+}
+
+.k-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.k-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.k-btn--primary {
+  border: none;
+  background: var(--saffron);
+  color: #1a1206;
+}
+
+.k-btn--primary:hover:not(:disabled) {
+  background: var(--gold);
+}
+
+.k-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--paper-dim);
+}
+
+.k-btn:focus-visible,
+.k-mode:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Title menu. */
+.k-menu {
+  width: min(640px, 100%);
+  margin-top: 22vh;
+  text-align: center;
+}
+
+.k-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.k-mode {
+  text-align: left;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 230, 200, 0.2);
+  background: var(--card);
+  color: var(--paper);
+  font: 14px/1.45 var(--font);
+  cursor: pointer;
+}
+
+.k-mode[aria-pressed='true'] {
+  border-color: var(--saffron);
+  box-shadow: 0 0 24px rgba(255, 179, 71, 0.25);
+}
+
+.k-mode strong {
+  display: block;
+  font-size: 18px;
+  color: #ffe0a3;
+}
+
+.k-mode .k-best {
+  display: block;
+  margin-top: 8px;
+  color: var(--gold);
+}
+
+.k-menu .k-actions {
+  justify-content: center;
+}
+
+/* Camera indicator: always visible while the camera is on. */
+.k-camera {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 6px 6px 14px;
+  border-radius: 999px;
+  background: rgba(8, 16, 38, 0.85);
+  border: 1px solid rgba(255, 120, 80, 0.55);
+  font: 600 14px var(--font);
+  z-index: 10;
+}
+
+.k-camera[hidden] {
+  display: none;
+}
+
+.k-camera .k-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff6a3d;
+  box-shadow: 0 0 10px #ff6a3d;
+  animation: k-pulse 1.6s ease-in-out infinite;
+}
+
+.k-camera .k-btn {
+  padding: 5px 14px;
+  font-size: 13px;
+}
+
+@keyframes k-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Debug stats (press D). */
+.k-stats {
+  position: fixed;
+  left: 16px;
+  bottom: 170px;
+  margin: 0;
+  font:
+    12px/1.5 ui-monospace,
+    Menlo,
+    monospace;
+  color: var(--paper);
+  text-shadow: 0 1px 2px #000;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-camera .k-dot {
+    animation: none;
+  }
+  .k-btn {
+    transition: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .k-modes {
+    grid-template-columns: 1fr;
+  }
+}

@@ -18,7 +18,7 @@ function loadApiKey(): string {
   try {
     process.loadEnvFile(resolve(app.getAppPath(), '.env'));
   } catch {
-    // No .env file: the game still runs in keyboard mode.
+    // No .env file: the menu explains how to add an API key.
   }
   return (process.env['SMARTSPECTRA_API_KEY'] ?? '').trim();
 }

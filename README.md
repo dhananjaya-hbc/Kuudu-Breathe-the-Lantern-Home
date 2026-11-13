@@ -15,32 +15,19 @@ with Electron and the [SmartSpectra Node SDK](https://github.com/Presage-Securit
 
 ![The Kuudu menu: a glowing paper lantern floats above the title on a night river under a full moon](docs/media/menu.png)
 
-| Breathing through the gates                                                                                                                        | Your breath, drawn as a ribbon                                                                                                    |
-| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| ![Mid-run: the lantern floats between bamboo gates strung with festival lights, with a trail of lights on the river behind it](docs/media/run.png) | ![End of a run: the player's breathing drawn as a glowing ribbon over the target wave, with the results card](docs/media/end.png) |
+![Mid-run: the lantern floats between bamboo gates strung with festival lights, with a trail of lights on the river behind it](docs/media/run.png)
 
-_Screenshots from keyboard mode. With the camera, the lantern follows your real breathing._
+## Get started
 
-## Try it in 2 minutes (no API key needed)
-
-Keyboard mode plays the whole game without a camera or API key: hold **Space** (or **↑**) to
-breathe in, release to breathe out.
-
-```bash
-git clone https://github.com/dhananjaya-hbc/Kuudu-Breathe-the-Lantern-Home.git
-cd Kuudu-Breathe-the-Lantern-Home
-npm install
-npm run dev
-```
-
-Then choose **Play with keyboard**.
-
-## Play with your breath (camera)
+You need Node.js 24+, a webcam, and a free SmartSpectra API key.
 
 1. Get a free API key at [physiology.presagetech.com](https://physiology.presagetech.com).
-2. Add it to a `.env` file in the project folder:
+2. Install and add the key to a `.env` file in the project folder:
 
    ```bash
+   git clone https://github.com/dhananjaya-hbc/Kuudu-Breathe-the-Lantern-Home.git
+   cd Kuudu-Breathe-the-Lantern-Home
+   npm install
    cp .env.example .env
    # then edit .env: SMARTSPECTRA_API_KEY=your-key
    ```
@@ -119,7 +106,7 @@ readings are used for gameplay only.
 - **macOS on Apple Silicon**, **Windows x64**, or **Linux x64/ARM64** with glibc 2.35+ (Ubuntu
   22.04+). These are the platforms the SmartSpectra Node SDK supports. Kuudu has been developed
   and tested on macOS (Apple Silicon).
-- A webcam for camera play. Keyboard mode needs none.
+- A webcam.
 
 ## Development
 
@@ -141,7 +128,6 @@ src/
   renderer/
     main.ts                screens and game flow
     sdk.ts                 SmartSpectra camera input
-    input/keyboard.ts      keyboard input (same interface as the camera)
     signal.ts              waveform → smooth 0–1 lantern height
     calibration.ts         guided calibration: direction, breath size, delay
     rhythm.ts              guide wave and match maths
@@ -173,7 +159,8 @@ tests/                     Vitest unit tests
 - **The camera is blocked on macOS.** Allow camera access for Electron, or for your terminal or
   editor, in System Settings → Privacy & Security → Camera.
 - **"The SmartSpectra API key was not accepted."** Check the key in `.env`, then restart the app.
-- **"Free-trial usage limit has been reached."** You can keep playing in keyboard mode.
+- **"Free-trial usage limit has been reached."** The API key's free-trial usage is used up. Ask
+  on the Presage Discord, or use another key.
 
 ## License
 

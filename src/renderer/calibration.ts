@@ -22,6 +22,13 @@ export const CALIBRATION_DURATION_MS =
 
 /** Below this match the player probably was not followed by the signal. */
 export const MIN_CALIBRATION_MATCH = 0.4;
+/**
+ * Flipping the signal needs clearer evidence than passing calibration. A
+ * player slightly out of step with the light can look like a flipped signal,
+ * so weak evidence keeps the normal direction (up = breathing in). The player
+ * can still flip it with F during a run.
+ */
+export const MIN_FLIP_MATCH = 0.55;
 /** Fewer points than this (≈ 8 Hz over 16 s) means the signal barely arrived. */
 const MIN_POINTS = 128;
 /** The lantern's minimum range, as a fraction of the player's breath size. */
@@ -129,7 +136,7 @@ export function analyseCalibration(points: readonly RhythmPoint[]): CalibrationR
 
   return {
     ok: true,
-    invert: !m.upIsInhale,
+    invert: !m.upIsInhale && m.match >= MIN_FLIP_MATCH,
     breathSize,
     minRange: breathSize * MIN_RANGE_FRACTION,
     delayMs: m.delayMs,

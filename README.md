@@ -38,10 +38,11 @@ You need Node.js 24+, a webcam, and a free SmartSpectra API key.
    blue light for about 19 seconds to calibrate, and breathe the lantern home.
 
 For the best signal, sit about an arm's length from the camera in even, front-facing light, with
-your shoulders and chest in view. The game shows a hint and pauses if it can't see you clearly.
+your shoulders and chest in view. A small mirrored preview (top left) shows what the camera sees,
+so you can check your framing. The game shows a hint and pauses if it can't see you clearly.
 
-**Controls:** **Esc** or the **Stop** button turns the camera off at any time · **M** mutes sound ·
-**D** shows the live waveform and debug stats.
+**Controls:** **Esc** or the **Stop** button turns the camera off at any time · **V** hides or
+shows the camera preview · **M** mutes sound · **D** shows the live waveform and debug stats.
 
 ## How to play
 

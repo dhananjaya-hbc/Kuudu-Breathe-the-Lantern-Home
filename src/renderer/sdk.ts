@@ -9,6 +9,7 @@
 
 import {
   MetricType,
+  ProcessingStatus,
   SmartSpectraErrorCode,
   SmartSpectraSDK,
   ValidationCode,
@@ -122,6 +123,8 @@ export class CameraBreathInput implements BreathInput {
     this.lastRateMs = 0;
     this.lastHint = null;
     this.frameSentAt.clear();
+    // After an error (e.g. a dropped connection) the SDK must be reset before it can start again.
+    if (this.sdk.processingStatus === ProcessingStatus.kError) await this.sdk.reset();
     await this.sdk.start();
   }
 

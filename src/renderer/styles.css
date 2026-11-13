@@ -3,7 +3,7 @@
 :root {
   --night: #0b1630;
   --night-deep: #060d22;
-  --card: rgba(8, 16, 38, 0.9);
+  --card: rgba(9, 18, 42, 0.97);
   --paper: #f5e6c8;
   --paper-dim: rgba(245, 230, 200, 0.72);
   --saffron: #ffb347;
@@ -35,7 +35,9 @@ body {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(6, 13, 34, 0.35);
+  /* Dim and soften the scene behind dialogs so their text stays easy to read. */
+  background: rgba(4, 9, 24, 0.6);
+  backdrop-filter: blur(3px);
 }
 
 .k-overlay[hidden] {
@@ -43,10 +45,10 @@ body {
 }
 
 .k-card {
-  width: min(560px, 100%);
+  width: min(640px, 100%);
   max-height: calc(100vh - 48px);
   overflow-y: auto;
-  padding: 28px 32px;
+  padding: 24px 30px;
   border-radius: 18px;
   background: var(--card);
   border: 1px solid var(--line);
@@ -54,21 +56,26 @@ body {
 }
 
 .k-card h2 {
-  margin: 0 0 6px;
-  font-size: 24px;
+  margin: 0 0 4px;
+  font-size: 22px;
   font-weight: 600;
   color: #ffe0a3;
 }
 
 .k-lead {
-  margin: 0 0 18px;
+  margin: 0 0 16px;
   color: var(--paper-dim);
 }
 
+/* Facts as a compact two-column list: heading on the left, detail on the right. */
 .k-facts {
   margin: 0;
   display: grid;
-  gap: 12px;
+  grid-template-columns: 9.5em 1fr;
+  column-gap: 18px;
+  row-gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .k-facts dt {
@@ -77,12 +84,12 @@ body {
 }
 
 .k-facts dd {
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--paper);
 }
 
 .k-note {
-  margin: 16px 0 0;
+  margin: 14px 0 0;
   font-size: 14px;
   color: var(--paper-dim);
 }
@@ -90,8 +97,9 @@ body {
 .k-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 18px;
 }
 
 /* Buttons. */
@@ -158,6 +166,9 @@ body {
 }
 
 .k-mode {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   text-align: left;
   padding: 16px 18px;
   border-radius: 14px;
@@ -254,7 +265,11 @@ body {
 }
 
 @media (max-width: 620px) {
-  .k-modes {
+  .k-modes,
+  .k-facts {
     grid-template-columns: 1fr;
+  }
+  .k-facts dd {
+    margin-bottom: 6px;
   }
 }

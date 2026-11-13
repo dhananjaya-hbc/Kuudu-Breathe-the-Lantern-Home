@@ -20,10 +20,19 @@
     <canvas id="game"></canvas>
 
     <!--
-      Camera feed for the SDK. Hidden from the player; it is never recorded or saved.
-      The visible "Camera on" indicator is part of the UI layer.
+      Camera feed for the SDK, also shown as a small mirrored preview while the camera
+      is on (press V to hide it), so players can check their framing. It is never
+      recorded or saved. The "Camera on" indicator is part of the UI layer.
     -->
-    <video id="camera" autoplay muted playsinline hidden></video>
+    <video
+      id="camera"
+      class="k-preview"
+      autoplay
+      muted
+      playsinline
+      hidden
+      aria-label="Camera preview"
+    ></video>
 
     <!-- Screens, hints and the camera indicator are rendered into this layer. -->
     <div id="ui"></div>

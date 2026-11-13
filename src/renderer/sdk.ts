@@ -4,7 +4,7 @@
 // Import only from the `/renderer` and `/messages` entry points. The package
 // root loads the native (FFI) runtime, which only works in the main process.
 //
-// Privacy: breathing is computed on this device by the SDK. Only the three
+// Privacy: breathing is computed on this device by the SDK. Only the two
 // breathing metrics below are requested, and SDK telemetry is turned off.
 
 import {
@@ -24,12 +24,11 @@ import {
   type InputHint,
 } from './input/types';
 
-/** Only what the game uses: chest waveform, breathing rate, amplitude. */
-const REQUESTED_METRICS = [
-  MetricType.CHEST_BREATHING,
-  MetricType.BREATHING_RATE,
-  MetricType.BREATHING_AMPLITUDE,
-];
+/**
+ * Only what the game uses: the chest waveform (moves the lantern) and the
+ * breathing rate (the pace shown at the end of a run).
+ */
+const REQUESTED_METRICS = [MetricType.CHEST_BREATHING, MetricType.BREATHING_RATE];
 
 const HINTS: Partial<Record<ValidationCodeValue, InputHint>> = {
   [ValidationCode.kNoFaceFound]: 'no-face',
@@ -74,6 +73,7 @@ export class CameraBreathInput implements BreathInput {
   private readonly emitter = new InputEmitter();
   private readonly sdk: SmartSpectraSDK;
   private lastSampleMs = 0;
+  private lastRateMs = 0;
   private lastHint: InputHint | null = null;
   /**
    * Frame timestamp (ms, SDK clock) → local time it was sent (performance.now()).
@@ -119,6 +119,7 @@ export class CameraBreathInput implements BreathInput {
 
   async start(): Promise<void> {
     this.lastSampleMs = 0;
+    this.lastRateMs = 0;
     this.lastHint = null;
     this.frameSentAt.clear();
     await this.sdk.start();
@@ -155,18 +156,16 @@ export class CameraBreathInput implements BreathInput {
       if (sentAt !== null) this.emitter.emit('latency', performance.now() - sentAt);
     }
 
+    // Each packet repeats the latest rate; pass on only new readings.
     const rate = breathing.rate?.at(-1);
-    if (rate && typeof rate.value === 'number') {
+    const rateMs = rate ? toMs(rate.timestamp) : 0;
+    if (rate && typeof rate.value === 'number' && rateMs > this.lastRateMs) {
+      this.lastRateMs = rateMs;
       this.emitter.emit('rate', {
-        timeMs: toMs(rate.timestamp),
+        timeMs: rateMs,
         breathsPerMinute: rate.value,
         confidence: rate.confidence ?? 0,
       });
-    }
-
-    const amplitude = breathing.amplitude?.at(-1);
-    if (amplitude && typeof amplitude.value === 'number') {
-      this.emitter.emit('amplitude', amplitude.value, toMs(amplitude.timestamp));
     }
   }
 

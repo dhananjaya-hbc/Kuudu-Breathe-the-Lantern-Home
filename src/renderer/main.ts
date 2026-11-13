@@ -309,7 +309,8 @@ async function endRun(now: number): Promise<void> {
   audio.stop();
   const summary = scoring.summary();
   const best = highScores.best(modeId);
-  const newBest = highScores.submit(modeId, summary.score);
+  // Only breath (camera) runs count toward the best score; keyboard mode is a fallback.
+  const newBest = inputKind === 'camera' && highScores.submit(modeId, summary.score);
   console.log('[run]', summary);
   endScreen.show(
     {
@@ -317,6 +318,7 @@ async function endRun(now: number): Promise<void> {
       summary,
       newBest,
       best: newBest ? null : best,
+      keyboard: inputKind === 'keyboard',
       ribbon: ribbon.data,
       pace: paceSummary(),
     },

@@ -82,6 +82,85 @@ The breathing-rate value is a ~30-second average, so it can't steer a game. That
 follows the raw chest waveform instead. The waveform's `stable` flag follows the rate's
 confidence, which drops whenever the player changes pace, so the lantern does not wait for it.
 
+## Architecture
+
+### How it fits together
+
+Kuudu is one Electron app. The SmartSpectra SDK runs in the main process. The sandboxed renderer
+owns the camera, the signal processing and the game. Everything stays on your computer except the
+SDK's authenticated connection to Presage (API key and usage). Telemetry is off.
+
+```mermaid
+flowchart TB
+  subgraph PC["Your computer"]
+    subgraph REN["Renderer · sandboxed · src/renderer"]
+      CAM["Webcam"]
+      SDKR["sdk.ts · SmartSpectraSDK renderer<br/>decodeMetrics"]
+      GAME["Signal · calibration · game"]
+      STORE[("localStorage<br/>best score + date only")]
+    end
+    subgraph PRE["Preload · sandboxed"]
+      BRIDGE["SDK MessagePort bridge<br/>+ window.kuudu.getApiKey()"]
+    end
+    subgraph MAIN["Electron main process · src/main/index.ts"]
+      KEY["Reads SMARTSPECTRA_API_KEY<br/>from .env"]
+      PERM["Camera-only permission,<br/>only for the app's own page"]
+      SDKMAIN["SmartSpectra SDK native runtime<br/>bindSmartSpectraIpc"]
+    end
+  end
+  PRESAGE["Presage service<br/>API key and usage"]
+
+  CAM -- "frames" --> SDKR
+  SDKR -- "waveform · rate · hints · errors" --> GAME
+  GAME --> STORE
+  SDKR <-- "frames down · metrics up" --> BRIDGE
+  BRIDGE <--> SDKMAIN
+  KEY -- "key at runtime" --> BRIDGE
+  PERM -. "allows" .-> CAM
+  SDKMAIN <-. "authenticated" .-> PRESAGE
+```
+
+### From breath to lantern
+
+What happens to each breathing sample, about 30 times a second:
+
+```mermaid
+flowchart TD
+  A["SmartSpectra metrics packet"] --> B["sdk.ts<br/>decode · keep only new samples"]
+  B -- "breathing.upperTrace" --> C["signal.ts<br/>1. remove drift (20 s)<br/>2. scale to typical breath (3rd–97th percentile)<br/>3. smooth (EMA)"]
+  B -- "breathing.rate (confidence ≥ 45)" --> P["Pace on the end screen"]
+  B -- "validation status" --> H["hints.ts<br/>friendly hint + pause"]
+  K["calibration.ts<br/>direction · breath size · delay"] --> C
+  C --> D["Lantern height 0–1<br/>eased to 60 fps"]
+  D --> G["gates.ts<br/>pass or miss"]
+  D --> S["scoring.ts<br/>glow · flicker · points"]
+  T["target-wave.ts<br/>the breathing wave to follow"] --> G
+  T -- "shifted by the calibrated delay" --> S
+  D --> R["Scene · lantern · sound"]
+  S --> R
+  G --> R
+  D --> E["Breath ribbon on the end screen<br/>(memory only, discarded after the run)"]
+```
+
+### Screens
+
+```mermaid
+flowchart LR
+  M["Menu"] --> CO["Consent"]
+  CO -- "Start camera" --> W["Settling in<br/>(up to 30 s)"]
+  W --> CA["Calibration<br/>(2 guided breaths)"]
+  CA -- "ok" --> RUN["Run<br/>Drift or Festival"]
+  CA -- "not clear" --> TA["Try again"]
+  TA --> CA
+  RUN --> END["Lantern release<br/>camera off · ribbon · results"]
+  END -- "Play again" --> W
+  END -- "Done" --> M
+  M --> SET["Settings<br/>Reset data"]
+  SET --> M
+```
+
+**Esc** or **Stop** returns to the menu from any screen and turns the camera off.
+
 ## Privacy and consent
 
 - The camera stays **off** until you press **Start camera** on the consent screen.

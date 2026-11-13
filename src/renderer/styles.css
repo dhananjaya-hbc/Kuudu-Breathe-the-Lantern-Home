@@ -240,6 +240,26 @@ body {
   }
 }
 
+/* Camera preview: what the camera sees, mirrored like a mirror. Only while the camera is on. */
+.k-preview {
+  position: fixed;
+  top: 64px;
+  left: 16px;
+  width: 224px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  transform: scaleX(-1);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 120, 80, 0.55);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  background: var(--night-deep);
+  z-index: 9;
+}
+
+.k-preview[hidden] {
+  display: none;
+}
+
 /* Debug stats (press D). */
 .k-stats {
   position: fixed;

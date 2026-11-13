@@ -3,6 +3,9 @@
 //
 // Import only from the `/renderer` and `/messages` entry points. The package
 // root loads the native (FFI) runtime, which only works in the main process.
+//
+// Privacy: breathing is computed on this device by the SDK. Only the three
+// breathing metrics below are requested, and SDK telemetry is turned off.
 
 import {
   MetricType,
@@ -83,7 +86,14 @@ export class CameraBreathInput implements BreathInput {
     apiKey: string,
     private readonly video: HTMLVideoElement,
   ) {
-    this.sdk = new SmartSpectraSDK({ apiKey, requestedMetrics: REQUESTED_METRICS });
+    this.sdk = new SmartSpectraSDK({
+      apiKey,
+      requestedMetrics: REQUESTED_METRICS,
+      // SDK telemetry is on by default. Kuudu turns it off: per Presage's
+      // "SDK Telemetry & Privacy" doc, the SDK then starts no telemetry
+      // session and transmits nothing.
+      enableTelemetry: false,
+    });
 
     this.sdk.on('streamAvailable', (stream) => {
       this.video.srcObject = stream;

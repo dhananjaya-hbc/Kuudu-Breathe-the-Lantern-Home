@@ -1,6 +1,6 @@
-// Shared input contract. The camera (SmartSpectra) and the keyboard fallback
-// both implement `BreathInput`, so the signal module and the game never need
-// to know which one is active.
+// Shared input contract. The SmartSpectra camera input implements
+// `BreathInput`, so the signal module and the game only depend on this
+// interface, not on the SDK itself.
 
 /** One raw breathing-waveform sample. Units are undocumented, so values are only compared to each other. */
 export interface BreathSample {
@@ -59,7 +59,7 @@ export interface BreathInputEvents {
 }
 
 export interface BreathInput {
-  readonly kind: 'camera' | 'keyboard';
+  readonly kind: 'camera';
   /** Starts the input. For the camera this turns the camera on. */
   start(): Promise<void>;
   /** Stops the input. For the camera this turns the camera off. */

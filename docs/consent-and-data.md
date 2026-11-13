@@ -10,8 +10,9 @@ and your data.
   session, a consent screen explains what is measured, why, where it happens and what is saved.
   The camera turns on only when you press **Start camera**. **Back** returns to the menu
   without turning it on.
-- **You can always see it.** A **"Camera on"** badge with a pulsing dot stays on screen for the
-  whole time the camera is on.
+- **You can always see it.** A **"Camera on"** badge with a pulsing dot, and a small mirrored
+  preview of exactly what the camera sees, stay on screen the whole time the camera is on. The
+  preview is never recorded or saved (press **V** to hide it).
 - **You can always stop it.** The badge's **Stop** button or the **Esc** key turns the camera off
   immediately, from any screen.
 - **It turns itself off.** The camera stops at the end of every run, and when you close the app.

@@ -8,8 +8,8 @@ and your data.
 
 - **The camera is off until you turn it on.** Before the camera starts for the first time in a
   session, a consent screen explains what is measured, why, where it happens and what is saved.
-  The camera turns on only when you press **Start camera**. **Play with keyboard instead** and
-  **Back** are always offered, and keyboard mode needs no camera at all.
+  The camera turns on only when you press **Start camera**. **Back** returns to the menu
+  without turning it on.
 - **You can always see it.** A **"Camera on"** badge with a pulsing dot stays on screen for the
   whole time the camera is on.
 - **You can always stop it.** The badge's **Stop** button or the **Esc** key turns the camera off

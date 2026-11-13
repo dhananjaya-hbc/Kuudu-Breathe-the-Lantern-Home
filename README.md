@@ -13,6 +13,14 @@ with Electron and the [SmartSpectra Node SDK](https://github.com/Presage-Securit
 
 > **Demo video:** _coming soon_
 
+![The Kuudu menu: a glowing paper lantern floats above the title on a night river under a full moon](docs/media/menu.png)
+
+| Breathing through the gates                                                                                                                        | Your breath, drawn as a ribbon                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| ![Mid-run: the lantern floats between bamboo gates strung with festival lights, with a trail of lights on the river behind it](docs/media/run.png) | ![End of a run: the player's breathing drawn as a glowing ribbon over the target wave, with the results card](docs/media/end.png) |
+
+_Screenshots from keyboard mode. With the camera, the lantern follows your real breathing._
+
 ## Try it in 2 minutes (no API key needed)
 
 Keyboard mode plays the whole game without a camera or API key: hold **Space** (or **↑**) to

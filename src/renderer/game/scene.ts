@@ -126,19 +126,33 @@ export class Scene {
       ctx.fill();
     }
 
-    // A soft, pale moon.
-    const mx = l.width * 0.82;
-    const my = l.height * 0.14;
-    const mr = 34 * l.scale;
-    const halo = ctx.createRadialGradient(mx, my, mr * 0.5, mx, my, mr * 4);
-    halo.addColorStop(0, 'rgba(230, 225, 205, 0.18)');
-    halo.addColorStop(1, 'rgba(230, 225, 205, 0)');
+    // The full Vesak (Poya) moon: small and soft, so the lantern stays the brightest light.
+    const mx = l.width * 0.8;
+    const my = l.height * 0.17;
+    const mr = 21 * l.scale;
+    const halo = ctx.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 5);
+    halo.addColorStop(0, 'rgba(220, 215, 195, 0.12)');
+    halo.addColorStop(1, 'rgba(220, 215, 195, 0)');
     ctx.fillStyle = halo;
-    ctx.fillRect(mx - mr * 4, my - mr * 4, mr * 8, mr * 8);
-    ctx.fillStyle = '#ece4cc';
+    ctx.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    const face = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, 0, mx, my, mr);
+    face.addColorStop(0, 'rgba(236, 228, 204, 0.85)');
+    face.addColorStop(1, 'rgba(200, 192, 170, 0.75)');
+    ctx.fillStyle = face;
     ctx.beginPath();
     ctx.arc(mx, my, mr, 0, Math.PI * 2);
     ctx.fill();
+    // Faint shading so it is not a flat disc.
+    ctx.fillStyle = 'rgba(150, 145, 130, 0.18)';
+    for (const [dx, dy, r] of [
+      [-0.35, -0.1, 0.28],
+      [0.25, 0.3, 0.2],
+      [0.3, -0.35, 0.14],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(mx + dx * mr, my + dy * mr, r * mr, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   /** Two layers of rolling hills at different scroll speeds. */

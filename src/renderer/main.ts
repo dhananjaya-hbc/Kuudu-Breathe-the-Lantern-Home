@@ -28,6 +28,7 @@ import { ConsentScreen } from './ui/consent';
 import { CameraIndicator } from './ui/camera-indicator';
 import { SettingsScreen } from './ui/settings';
 import { button, el, Overlay } from './ui/dom';
+import { AmbientAudio } from './audio/ambient';
 
 type Screen = 'menu' | 'consent' | 'settings' | 'calibrating' | 'failed' | 'playing' | 'ended';
 type InputKind = 'camera' | 'keyboard';
@@ -55,6 +56,18 @@ const hints = new HintDisplay(ui);
 const indicator = new CameraIndicator(ui, () => void stopEverything());
 const stats = el('pre', 'k-stats');
 ui.append(stats);
+const audio = new AmbientAudio();
+const soundButton = button('♪ Sound on', () => toggleSound(), 'ghost');
+Object.assign(soundButton.style, { position: 'fixed', right: '16px', bottom: '16px' });
+soundButton.setAttribute('aria-pressed', 'true');
+ui.append(soundButton);
+
+/** Mute is for this session only and is never saved. */
+function toggleSound(): void {
+  audio.muted = !audio.muted;
+  soundButton.textContent = audio.muted ? '♪ Sound off' : '♪ Sound on';
+  soundButton.setAttribute('aria-pressed', String(!audio.muted));
+}
 
 let screen: Screen = 'menu';
 let modeId: ModeId = 'drift';
@@ -262,6 +275,7 @@ function startRun(now: number): void {
   const first = plan.apply(0, wave, gates);
   banner = first ? { text: bannerText(first.index, first.level.name), atMs: now } : null;
   screen = 'playing';
+  void audio.start();
 }
 
 function bannerText(index: number, name: string): string {
@@ -271,6 +285,8 @@ function bannerText(index: number, name: string): string {
 async function endRun(now: number): Promise<void> {
   endHeight = signal.height;
   screen = 'ended';
+  audio.release();
+  audio.stop();
   const summary = scoring.summary();
   const best = highScores.best(modeId);
   const newBest = highScores.submit(modeId, summary.score);
@@ -310,6 +326,7 @@ async function stopEverything(): Promise<void> {
   endScreen.hide();
   ribbon.clear();
   signal.reset();
+  audio.stop();
   await keyboard.stop();
   await stopCamera();
   showMenu();
@@ -340,7 +357,12 @@ function update(dtMs: number, now: number): void {
 
   const target = displayHeight(wave.heightAt(runMs - delayMs()), gates.options.inset);
   scoring.update(dtMs, height, target);
-  for (const e of gates.update(runMs, height)) scoring.onGate(e.result);
+  for (const e of gates.update(runMs, height)) {
+    scoring.onGate(e.result);
+    if (e.result === 'passed') audio.chime(scoring.streak);
+    else audio.miss();
+  }
+  audio.update(height, scoring.glow);
   ribbon.record(runMs, height, target);
 
   if (plan.isFinished(runMs)) void endRun(now);
@@ -548,6 +570,7 @@ async function init(): Promise<void> {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') void stopEverything();
     if (e.key === 'd' || e.key === 'D') showDebug = !showDebug;
+    if (e.key === 'm' || e.key === 'M') toggleSound();
   });
   window.addEventListener('beforeunload', () => {
     loop.stop();

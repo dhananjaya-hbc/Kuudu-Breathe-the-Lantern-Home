@@ -32,7 +32,8 @@ export function computeLayout(width: number, height: number, scale: number): Lay
     scale,
     waterY,
     flyTop: height * 0.14,
-    flyBottom: waterY - height * 0.08,
+    // High enough that the lantern's paper tails skim the water, not dip into it.
+    flyBottom: waterY - height * 0.14,
     lanternX: width * 0.3,
   };
 }

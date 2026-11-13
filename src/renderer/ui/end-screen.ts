@@ -199,6 +199,13 @@ export class EndScreen {
     ctx.save();
     ctx.globalAlpha = Math.min(1, reveal * 3);
 
+    // A soft night-sky panel behind the ribbon keeps it readable over stars and the moon.
+    const pad = 28 * l.scale;
+    ctx.fillStyle = 'rgba(5, 11, 30, 0.72)';
+    ctx.beginPath();
+    ctx.roundRect(left - pad, top - pad * 1.6, width + pad * 2, height + pad * 2.6, 18 * l.scale);
+    ctx.fill();
+
     // The target wave: a faint dotted line under the ribbon.
     ctx.strokeStyle = 'rgba(160, 190, 230, 0.35)';
     ctx.lineWidth = 2 * l.scale;

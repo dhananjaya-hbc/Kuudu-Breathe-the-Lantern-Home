@@ -30,7 +30,16 @@ import { SettingsScreen } from './ui/settings';
 import { button, el, Overlay } from './ui/dom';
 import { AmbientAudio } from './audio/ambient';
 
-type Screen = 'menu' | 'consent' | 'settings' | 'calibrating' | 'failed' | 'playing' | 'ended';
+type Screen =
+  'menu' | 'consent' | 'settings' | 'warming' | 'calibrating' | 'failed' | 'playing' | 'ended';
+
+/**
+ * Presage: the breathing waveform needs up to 30 s before it is reliable.
+ * Warm-up lasts until the SDK marks a sample stable (but at least
+ * WARMUP_MIN_MS) or WARMUP_MAX_MS has passed, then calibration starts.
+ */
+const WARMUP_MIN_MS = 6_000;
+const WARMUP_MAX_MS = 30_000;
 type InputKind = 'camera' | 'keyboard';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
@@ -218,7 +227,7 @@ async function startCamera(): Promise<void> {
     }
     cameraRunning = true;
     indicator.on = true;
-    startCalibration();
+    startWarmup();
   } catch (e) {
     hints.message(e instanceof Error ? e.message : String(e), performance.now(), 10_000);
     await stopCamera();
@@ -244,6 +253,16 @@ async function playWithKeyboard(): Promise<void> {
   signal.setMinRange(0.5);
   await keyboard.start();
   startRun(performance.now());
+}
+
+/** When warm-up began (performance.now()), and whether the SDK has reported a stable sample. */
+let warmup = { startMs: 0, stableSeen: false };
+
+function startWarmup(): void {
+  failedCard.close();
+  signal.reset();
+  warmup = { startMs: performance.now(), stableSeen: false };
+  screen = 'warming';
 }
 
 function startCalibration(): void {
@@ -409,6 +428,15 @@ async function stopEverything(): Promise<void> {
 function update(dtMs: number, now: number): void {
   hints.update(now);
 
+  if (screen === 'warming') {
+    const elapsed = now - warmup.startMs;
+    // Warm-up only counts while the view is clear; restart it if not.
+    if (hints.paused) warmup = { startMs: now, stableSeen: false };
+    else if ((warmup.stableSeen && elapsed >= WARMUP_MIN_MS) || elapsed >= WARMUP_MAX_MS) {
+      startCalibration();
+    }
+  }
+
   if (screen === 'calibrating') {
     // Calibration only counts while the view is clear; restart it if not.
     if (hints.paused) calibration.start(now);
@@ -476,19 +504,22 @@ function render(now: number, dtMs: number): void {
     );
     endScreen.draw(ctx, l, now);
   } else if (screen !== 'calibrating') {
-    // Menu, consent, settings: the lantern floats gently, centred above the title.
+    // Menu, consent, settings, warm-up: the lantern floats gently, centred above the text.
+    // During warm-up it slowly brightens, as if being lit.
+    const warmGlow = screen === 'warming' ? 0.15 + 0.6 * warmupProgress(now) : glow;
     lantern.draw(
       ctx,
       { ...l, lanternX: l.width / 2 },
-      { ...lanternState, height: 0.93 + 0.04 * Math.sin(now / 2_400) },
+      { ...lanternState, glow: warmGlow, height: 0.93 + 0.04 * Math.sin(now / 2_400) },
       dtMs,
     );
   }
 
   if (screen === 'playing') drawHud(now);
+  if (screen === 'warming') drawWarmup(now);
   if (screen === 'calibrating') drawCalibration(now);
 
-  if (showDebug && (screen === 'calibrating' || screen === 'playing')) {
+  if (showDebug && (screen === 'warming' || screen === 'calibrating' || screen === 'playing')) {
     drawTraceGraph(
       ctx,
       { x: 16 * l.scale, y: l.height - 150 * l.scale, width: l.width * 0.4, height: 130 * l.scale },
@@ -567,6 +598,39 @@ function calibrationText(): string {
   );
 }
 
+function warmupProgress(now: number): number {
+  return Math.min(1, (now - warmup.startMs) / WARMUP_MAX_MS);
+}
+
+/** "Settling in" while the SDK's breathing waveform warms up. */
+function drawWarmup(now: number): void {
+  const l = layout;
+  const s = l.scale;
+  const x = l.width / 2;
+  const y = l.height * 0.5;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f5e6c8';
+  ctx.font = `600 ${26 * s}px system-ui, sans-serif`;
+  ctx.fillText(hints.paused ? 'Waiting for a clear view…' : 'Settling in…', x, y);
+  ctx.font = `${16 * s}px system-ui, sans-serif`;
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.8)';
+  ctx.fillText('Sit comfortably, face the camera and breathe naturally.', x, y + 32 * s);
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.6)';
+  ctx.font = `${14 * s}px system-ui, sans-serif`;
+  ctx.fillText(
+    'Tip: even light on your face, shoulders in view, and staying still work best.',
+    x,
+    y + 58 * s,
+  );
+  const barWidth = 240 * s;
+  ctx.fillStyle = 'rgba(245, 230, 200, 0.15)';
+  ctx.fillRect(x - barWidth / 2, y + 80 * s, barWidth, 4 * s);
+  ctx.fillStyle = '#ffb347';
+  ctx.fillRect(x - barWidth / 2, y + 80 * s, barWidth * warmupProgress(now), 4 * s);
+  ctx.restore();
+}
+
 /** The guide light over the river during calibration. */
 function drawCalibration(now: number): void {
   const l = layout;
@@ -629,13 +693,14 @@ function attach(input: BreathInput): void {
   input.on('samples', (batch) => {
     if (input.kind !== inputKind) return;
     signal.push(batch);
+    if (screen === 'warming' && batch.some((sample) => sample.stable)) warmup.stableSeen = true;
     if (screen === 'calibrating') calibration.addSamples(batch, performance.now());
   });
   input.on('hint', (h) => {
     if (input.kind === inputKind) hints.set(h, performance.now());
   });
   input.on('error', (e) => {
-    const inUse = screen === 'calibrating' || screen === 'playing';
+    const inUse = screen === 'warming' || screen === 'calibrating' || screen === 'playing';
     if (input.kind === 'camera' && inputKind === 'camera' && inUse) void cameraStopped(e.message);
     else hints.message(e.message, performance.now(), 10_000);
   });

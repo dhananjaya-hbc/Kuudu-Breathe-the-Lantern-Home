@@ -130,20 +130,21 @@ export class Scene {
     const mx = l.width * 0.8;
     const my = l.height * 0.17;
     const mr = 21 * l.scale;
-    const halo = ctx.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 5);
-    halo.addColorStop(0, 'rgba(220, 215, 195, 0.12)');
-    halo.addColorStop(1, 'rgba(220, 215, 195, 0)');
+    const halo = ctx.createRadialGradient(mx, my, mr * 0.9, mx, my, mr * 5);
+    halo.addColorStop(0, 'rgba(255, 236, 190, 0.22)');
+    halo.addColorStop(1, 'rgba(255, 236, 190, 0)');
     ctx.fillStyle = halo;
     ctx.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    // Solid, warm and bright, but small: the lantern is still the brightest thing on screen.
     const face = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, 0, mx, my, mr);
-    face.addColorStop(0, 'rgba(236, 228, 204, 0.85)');
-    face.addColorStop(1, 'rgba(200, 192, 170, 0.75)');
+    face.addColorStop(0, '#fff6dc');
+    face.addColorStop(1, '#ead9ad');
     ctx.fillStyle = face;
     ctx.beginPath();
     ctx.arc(mx, my, mr, 0, Math.PI * 2);
     ctx.fill();
     // Faint shading so it is not a flat disc.
-    ctx.fillStyle = 'rgba(150, 145, 130, 0.18)';
+    ctx.fillStyle = 'rgba(190, 170, 120, 0.22)';
     for (const [dx, dy, r] of [
       [-0.35, -0.1, 0.28],
       [0.25, 0.3, 0.2],

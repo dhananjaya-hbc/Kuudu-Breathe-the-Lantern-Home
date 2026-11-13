@@ -86,38 +86,25 @@ confidence, which drops whenever the player changes pace, so the lantern does no
 
 ### How it fits together
 
-Kuudu is one Electron app. The SmartSpectra SDK runs in the main process. The sandboxed renderer
-owns the camera, the signal processing and the game. Everything stays on your computer except the
+Kuudu is one Electron app. **Orange** boxes run in the sandboxed game window (renderer),
+**blue** boxes in the Electron main process, and the **grey dashed** box is outside your computer. Everything stays on your computer except the
 SDK's authenticated connection to Presage (API key and usage). Telemetry is off.
 
 ```mermaid
-flowchart TB
-  subgraph PC["Your computer"]
-    subgraph REN["Renderer · sandboxed · src/renderer"]
-      CAM["Webcam"]
-      SDKR["sdk.ts · SmartSpectraSDK renderer<br/>decodeMetrics"]
-      GAME["Signal · calibration · game"]
-      STORE[("localStorage<br/>best score + date only")]
-    end
-    subgraph PRE["Preload · sandboxed"]
-      BRIDGE["SDK MessagePort bridge<br/>+ window.kuudu.getApiKey()"]
-    end
-    subgraph MAIN["Electron main process · src/main/index.ts"]
-      KEY["Reads SMARTSPECTRA_API_KEY<br/>from .env"]
-      PERM["Camera-only permission,<br/>only for the app's own page"]
-      SDKMAIN["SmartSpectra SDK native runtime<br/>bindSmartSpectraIpc"]
-    end
-  end
-  PRESAGE["Presage service<br/>API key and usage"]
+flowchart LR
+  CAM["Webcam"] -- "camera frames" --> SDKR["sdk.ts<br/>SmartSpectra SDK<br/>(game window)"]
+  SDKR -- "frames" --> SDKM["SmartSpectra SDK<br/>native runtime<br/>(main process)"]
+  SDKM -- "breathing waveform<br/>and rate" --> GAME["Kuudu game<br/>signal → lantern<br/>→ gates → score<br/>(game window)"]
+  GAME --> SAVE[("Saved on this computer:<br/>best score + date only")]
+  ENV[".env<br/>API key<br/>(main process)"] -- "API key" --> SDKM
+  SDKM <-. "authenticated" .-> PRESAGE["Presage service<br/>API key and usage check"]
 
-  CAM -- "frames" --> SDKR
-  SDKR -- "waveform · rate · hints · errors" --> GAME
-  GAME --> STORE
-  SDKR <-- "frames down · metrics up" --> BRIDGE
-  BRIDGE <--> SDKMAIN
-  KEY -- "key at runtime" --> BRIDGE
-  PERM -. "allows" .-> CAM
-  SDKMAIN <-. "authenticated" .-> PRESAGE
+  classDef window fill:#fff4e0,stroke:#e0a040,color:#2a1a00
+  classDef main fill:#e6eeff,stroke:#5b7bd5,color:#0b1630
+  classDef outside fill:#f2f2f2,stroke:#999,color:#222,stroke-dasharray: 4 3
+  class SDKR,GAME window
+  class SDKM,ENV main
+  class PRESAGE outside
 ```
 
 ### From breath to lantern

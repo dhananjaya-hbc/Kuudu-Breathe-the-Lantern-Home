@@ -52,6 +52,8 @@ export interface EndScreenData {
   summary: RunSummary;
   newBest: boolean;
   best: HighScore | null;
+  /** True for keyboard runs, which don't count toward the best score. */
+  keyboard: boolean;
   ribbon: readonly RibbonPoint[];
   /**
    * Average breathing pace from the SmartSpectra breathing rate (confident
@@ -273,7 +275,10 @@ function row(label: string, value: string): HTMLDivElement {
 function bestLine(data: EndScreenData): HTMLDivElement {
   const div = document.createElement('div');
   div.style.marginTop = '10px';
-  if (data.newBest) {
+  if (data.keyboard) {
+    div.style.opacity = '0.75';
+    div.textContent = 'Keyboard runs don’t count toward your best. Try it with your breath!';
+  } else if (data.newBest) {
     div.style.color = '#ffc15e';
     div.textContent = `✦ New best for ${data.modeName}!`;
   } else if (data.best) {

@@ -44,7 +44,11 @@ export class Overlay {
     return !this.root.hidden;
   }
 
-  /** Replaces the overlay's content and shows it. Focuses the first button. */
+  /**
+   * Replaces the overlay's content and shows it, scrolled to the top.
+   * Focuses the first button without scrolling, so a tall card never opens
+   * scrolled to the bottom with its title hidden.
+   */
   open(...children: Child[]): void {
     this.root.replaceChildren();
     for (const child of children) {
@@ -52,7 +56,11 @@ export class Overlay {
       this.root.append(typeof child === 'string' ? document.createTextNode(child) : child);
     }
     this.root.hidden = false;
-    this.root.querySelector<HTMLButtonElement>('button:not([disabled])')?.focus();
+    this.root.scrollTop = 0;
+    for (const card of this.root.querySelectorAll<HTMLElement>('.k-card')) card.scrollTop = 0;
+    this.root
+      .querySelector<HTMLButtonElement>('button:not([disabled])')
+      ?.focus({ preventScroll: true });
   }
 
   close(): void {

@@ -41,8 +41,8 @@ For the best signal, sit about an arm's length from the camera in even, front-fa
 your shoulders and chest in view. A small mirrored preview (top left) shows what the camera sees,
 so you can check your framing. The game shows a hint and pauses if it can't see you clearly.
 
-**Controls:** **Esc** or the **Stop** button turns the camera off at any time · **V** hides or
-shows the camera preview · **M** mutes sound · **D** shows the live waveform and debug stats.
+**Controls:** **Esc** or the **Stop** button turns the camera off at any time · **F** flips the
+lantern's direction if it moves the wrong way · **V** hides or shows the camera preview · **M** mutes sound · **D** shows the live waveform and debug stats.
 
 ## How to play
 

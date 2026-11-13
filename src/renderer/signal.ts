@@ -2,11 +2,14 @@
 // height from 0 (fully out) to 1 (fully in).
 //
 // For each new sample:
-//   1. Remove drift: subtract the average of the last 10 s, so slow body
-//      movement does not make the lantern slowly sink or rise.
-//   2. Normalise: map the value into 0–1 using the min/max of the last 10 s.
-//      Units are undocumented, so raw values are never used directly. A
-//      minimum range (from calibration) stops tiny noise filling the screen.
+//   1. Remove drift: subtract the average of the last 20 s, so slow body
+//      movement does not make the lantern slowly sink or rise. 20 s spans
+//      two or more slow breaths, so the breathing wave itself is not bent.
+//   2. Normalise: map the value into 0–1 using the typical range of the last
+//      15 s (3rd to 97th percentile), so one sudden spike (a cough, shifting
+//      in the chair) can't shrink every breath after it. Units are
+//      undocumented, so raw values are never used directly. A minimum range
+//      (from calibration) stops tiny noise filling the screen.
 //   3. Smooth: exponential moving average, so the lantern does not jitter.
 // Then, every animation frame:
 //   4. Ease the displayed height toward the latest target at 60 fps.
@@ -72,7 +75,7 @@ export interface SignalOptions {
   historyMs: number;
   /** Window for the drift-removing average. */
   detrendWindowMs: number;
-  /** Window for the rolling min/max used to normalise. */
+  /** Window for the rolling typical range used to normalise. */
   rangeWindowMs: number;
   /** EMA weight for each new sample (0–1). Higher reacts faster, lower is smoother. */
   alpha: number;
@@ -88,8 +91,8 @@ export interface SignalOptions {
 
 export const DEFAULT_SIGNAL_OPTIONS: SignalOptions = {
   historyMs: 20_000,
-  detrendWindowMs: 10_000,
-  rangeWindowMs: 10_000,
+  detrendWindowMs: 20_000,
+  rangeWindowMs: 15_000,
   alpha: 0.25,
   easeMs: 120,
   warmupMs: 2_000,
@@ -106,6 +109,10 @@ export interface ProcessedSample {
   /** Smoothed height, 0–1. */
   height: number;
 }
+
+/** The typical range ignores the most extreme 3% at each end (spikes). */
+const LOW_PERCENTILE = 0.03;
+const HIGH_PERCENTILE = 0.97;
 
 /** History capacity: 30 Hz × history window, with headroom. */
 const CAPACITY = 2048;
@@ -203,15 +210,12 @@ export class BreathSignal {
     });
     const detrended = s.value - this.detrendSum / this.detrendWindow.length;
 
-    // 2. Normalise with the rolling min/max, never narrower than minRange.
+    // 2. Normalise with the rolling typical range, never narrower than minRange.
     this.rangeWindow.push({ timeMs: s.timeMs, value: detrended });
     this.rangeWindow.dropWhile((old) => old.timeMs < s.timeMs - this.options.rangeWindowMs);
-    let min = Infinity;
-    let max = -Infinity;
-    for (const p of this.rangeWindow) {
-      if (p.value < min) min = p.value;
-      if (p.value > max) max = p.value;
-    }
+    const sorted = Array.from(this.rangeWindow, (p) => p.value).sort((a, b) => a - b);
+    const min = sorted[Math.floor((sorted.length - 1) * LOW_PERCENTILE)]!;
+    const max = sorted[Math.ceil((sorted.length - 1) * HIGH_PERCENTILE)]!;
     const range = max - min;
     let normalised = 0.5;
     if (range < this.minRange) {

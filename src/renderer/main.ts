@@ -351,6 +351,42 @@ function paceSummary(): { breathsPerMinute: number; target: string } | null {
   return { breathsPerMinute: average, target };
 }
 
+/** A camera error during calibration or a run: turn the camera off and offer a way on. */
+async function cameraStopped(message: string): Promise<void> {
+  screen = 'failed';
+  audio.stop();
+  ribbon.clear();
+  paceReadings = [];
+  hints.clear();
+  failedCard.open(
+    el(
+      'div',
+      'k-card',
+      el('h2', '', 'Camera play stopped'),
+      el('p', 'k-lead', message),
+      el('p', 'k-note', 'The camera has been turned off.'),
+      el(
+        'div',
+        'k-actions',
+        button(
+          'Try again',
+          () => {
+            failedCard.close();
+            void startCamera();
+          },
+          'primary',
+        ),
+        button('Play with keyboard', () => {
+          failedCard.close();
+          void playWithKeyboard();
+        }),
+        button('Back', () => void stopEverything(), 'ghost'),
+      ),
+    ),
+  );
+  await stopCamera();
+}
+
 /** Esc / Stop: end whatever is happening, turn the camera off, back to the menu. */
 async function stopEverything(): Promise<void> {
   consent.hide();
@@ -584,7 +620,11 @@ function attach(input: BreathInput): void {
   input.on('hint', (h) => {
     if (input.kind === inputKind) hints.set(h, performance.now());
   });
-  input.on('error', (e) => hints.message(e.message, performance.now(), 10_000));
+  input.on('error', (e) => {
+    const inUse = screen === 'calibrating' || screen === 'playing';
+    if (input.kind === 'camera' && inputKind === 'camera' && inUse) void cameraStopped(e.message);
+    else hints.message(e.message, performance.now(), 10_000);
+  });
 }
 
 async function init(): Promise<void> {

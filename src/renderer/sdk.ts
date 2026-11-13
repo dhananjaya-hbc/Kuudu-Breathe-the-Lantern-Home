@@ -53,7 +53,7 @@ const ERROR_MESSAGES: Partial<Record<SmartSpectraErrorCodeValue, string>> = {
   [SmartSpectraErrorCode.kAuthenticationFailed]:
     'The SmartSpectra API key was not accepted. Check the key in your .env file.',
   [SmartSpectraErrorCode.kCreditExhausted]:
-    'The free-trial usage limit has been reached. You can still play in keyboard mode.',
+    'The free-trial usage limit has been reached for this API key.',
   [SmartSpectraErrorCode.kNetworkError]:
     'Could not reach the SmartSpectra service. Check your internet connection.',
   [SmartSpectraErrorCode.kServerError]: 'The SmartSpectra service had a problem. Please try again.',

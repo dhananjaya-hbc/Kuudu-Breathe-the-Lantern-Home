@@ -89,6 +89,12 @@ let cameraRunning = false;
 let cameraSession = 0;
 let consentGiven = false;
 let showDebug = false;
+/** The small camera preview; V hides or shows it. It only appears while the camera is on. */
+let showPreview = true;
+
+function updatePreview(): void {
+  video.hidden = !(cameraRunning && showPreview);
+}
 let lastCalibration: CalibrationResult | null = null;
 let rateText = '–';
 let layout: Layout = computeLayout(1, 1, 1);
@@ -213,6 +219,7 @@ async function startCamera(): Promise<void> {
     }
     cameraRunning = true;
     indicator.on = true;
+    updatePreview();
     startWarmup();
   } catch (e) {
     hints.message(e instanceof Error ? e.message : String(e), performance.now(), 10_000);
@@ -226,6 +233,7 @@ async function stopCamera(): Promise<void> {
   indicator.on = false;
   if (!camera || !cameraRunning) return;
   cameraRunning = false;
+  updatePreview();
   await camera.stop();
 }
 
@@ -673,6 +681,10 @@ async function init(): Promise<void> {
     if (e.key === 'Escape') void stopEverything();
     if (e.key === 'd' || e.key === 'D') showDebug = !showDebug;
     if (e.key === 'm' || e.key === 'M') toggleSound();
+    if (e.key === 'v' || e.key === 'V') {
+      showPreview = !showPreview;
+      updatePreview();
+    }
   });
   window.addEventListener('beforeunload', () => {
     loop.stop();

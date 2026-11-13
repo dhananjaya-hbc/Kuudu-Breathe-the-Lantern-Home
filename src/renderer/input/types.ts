@@ -52,8 +52,6 @@ export interface BreathInputEvents {
   /** New waveform samples, oldest first. */
   samples: (samples: BreathSample[]) => void;
   rate: (rate: BreathRate) => void;
-  /** Breathing amplitude, used for auto-scaling shallow and deep breathers. */
-  amplitude: (value: number, timeMs: number) => void;
   hint: (hint: InputHint | null) => void;
   error: (error: InputError) => void;
   /** Camera only: time from a frame being sent to its breathing sample arriving. */

@@ -11,9 +11,9 @@ moon. All artwork and sound are original and generated in code.
 Built for the [Presage SmartSpectra SDK Challenge](https://dev.to/challenges/presage-2026-11-04)
 with Electron and the [SmartSpectra Node SDK](https://github.com/Presage-Security/SmartSpectra).
 
-> **Demo video:** _coming soon_
+**[▶ Watch the demo video (3 min)](https://youtu.be/2m51ULpHtNQ)**
 
-![The Kuudu menu: a glowing paper lantern floats above the title on a night river under a full moon](docs/media/menu.png)
+[![Kuudu demo video: a glowing paper lantern over a night river, with the title Kuudu, Breathe the lantern home](docs/media/thumbnail.png)](https://youtu.be/2m51ULpHtNQ)
 
 ![Mid-run: the lantern floats between bamboo gates strung with festival lights, with a trail of lights on the river behind it](docs/media/run.png)
 

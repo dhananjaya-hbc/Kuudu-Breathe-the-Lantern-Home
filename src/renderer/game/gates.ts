@@ -166,17 +166,7 @@ export class GateTrack {
     if (openTop > skyTop + 10 * s) this.drawPole(ctx, x, skyTop, openTop, poleWidth, s);
     this.drawPole(ctx, x, openBottom, l.waterY, poleWidth, s);
 
-    // Faint guide across the opening.
-    ctx.strokeStyle = 'rgba(255, 214, 140, 0.12)';
-    ctx.lineWidth = 2 * s;
-    ctx.setLineDash([4 * s, 6 * s]);
-    ctx.beginPath();
-    ctx.moveTo(x, openTop);
-    ctx.lineTo(x, openBottom);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Lamps at the edges of the opening: warm while waiting, flaring when passed, dim when missed.
+    // Warm while waiting, flaring when passed, dim blue when missed.
     const since = gate.resolvedAtMs === null ? Infinity : runMs - gate.resolvedAtMs;
     const flare = gate.result === 'passed' ? Math.max(0, 1 - since / 900) : 0;
     const color =
@@ -186,6 +176,23 @@ export class GateTrack {
           ? '255, 225, 150'
           : '255, 190, 90';
     const alpha = gate.result === 'missed' ? 0.45 : 0.95;
+
+    // Crossbars framing the opening, like a small festival arch.
+    const barHalf = 18 * s;
+    ctx.strokeStyle = gate.result === 'missed' ? 'rgba(80, 100, 150, 0.8)' : '#3a4f86';
+    ctx.lineWidth = 5 * s;
+    ctx.lineCap = 'round';
+    for (const y of [openTop, openBottom]) {
+      if (y < skyTop) continue;
+      ctx.beginPath();
+      ctx.moveTo(x - barHalf, y);
+      ctx.lineTo(x + barHalf, y);
+      ctx.stroke();
+    }
+
+    this.drawLightString(ctx, x, Math.max(openTop, skyTop), openBottom, s, gate, flare, runMs);
+
+    // Lamps at the edges of the opening.
     for (const y of [openTop, openBottom]) {
       if (y < skyTop) continue;
       const r = (6 + 10 * flare) * s;
@@ -197,6 +204,61 @@ export class GateTrack {
       ctx.fillStyle = `rgba(${color}, ${alpha})`;
       ctx.beginPath();
       ctx.arc(x, y, 6 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /**
+   * A string of small lights bowing gently across the opening, so it is
+   * obvious where to fly through. They twinkle in festival colours while
+   * waiting, brighten when passed, and dim to blue when missed.
+   */
+  private drawLightString(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    top: number,
+    bottom: number,
+    s: number,
+    gate: Gate,
+    flare: number,
+    runMs: number,
+  ): void {
+    const length = bottom - top;
+    if (length < 20 * s) return;
+    const bow = 16 * s; // how far the string sags toward the viewer's right
+    const pointAt = (t: number): [number, number] => [
+      x + bow * Math.sin(Math.PI * t),
+      top + t * length,
+    ];
+
+    ctx.strokeStyle =
+      gate.result === 'missed' ? 'rgba(120, 150, 200, 0.2)' : 'rgba(255, 214, 140, 0.3)';
+    ctx.lineWidth = 1.5 * s;
+    ctx.beginPath();
+    for (let i = 0; i <= 20; i++) {
+      const [px, py] = pointAt(i / 20);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    const palette = ['255, 143, 163', '255, 193, 94', '255, 241, 214'];
+    const count = Math.max(3, Math.round(length / (22 * s)));
+    for (let i = 1; i < count; i++) {
+      const [px, py] = pointAt(i / count);
+      const twinkle = 0.65 + 0.35 * Math.sin(runMs / 260 + i * 1.9 + gate.atMs);
+      const rgb = gate.result === 'missed' ? '120, 150, 200' : palette[i % palette.length]!;
+      const a = gate.result === 'missed' ? 0.35 : Math.min(1, twinkle + flare);
+      const r = (3 + 2 * flare) * s;
+
+      const halo = ctx.createRadialGradient(px, py, 0, px, py, r * 3.5);
+      halo.addColorStop(0, `rgba(${rgb}, ${(0.45 * a).toFixed(3)})`);
+      halo.addColorStop(1, `rgba(${rgb}, 0)`);
+      ctx.fillStyle = halo;
+      ctx.fillRect(px - r * 3.5, py - r * 3.5, r * 7, r * 7);
+      ctx.fillStyle = `rgba(${rgb}, ${a.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fill();
     }
   }

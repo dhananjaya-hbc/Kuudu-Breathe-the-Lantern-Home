@@ -10,7 +10,6 @@ import { button, el, Overlay } from './dom';
 
 export interface ConsentActions {
   onStartCamera(): void;
-  onKeyboard(): void;
   onBack(): void;
 }
 
@@ -86,7 +85,6 @@ export class ConsentScreen {
           'div',
           'k-actions',
           button('Start camera', close(actions.onStartCamera), 'primary'),
-          button('Play with keyboard instead', close(actions.onKeyboard)),
           button('Back', close(actions.onBack), 'ghost'),
         ),
       ),

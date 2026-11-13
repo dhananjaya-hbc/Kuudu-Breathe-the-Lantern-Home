@@ -1,15 +1,14 @@
 // Renderer entry point.
 //
-// Menu → (camera: consent → camera on → guided calibration) or (keyboard) →
-// the run (Drift: 2 min, Festival: 3 levels) → the input stops (camera off)
-// → the lantern release screen with the breath ribbon and results.
+// Menu → consent → camera on → settling in → guided calibration → the run
+// (Drift: 2 min, Festival: 3 levels) → the camera turns off → the lantern
+// release screen with the breath ribbon and results.
 //
 // Esc or the Stop button ends everything and turns the camera off from any
 // screen. Press D for the waveform overlay and debug stats.
 
 import './styles.css';
 import { CameraBreathInput } from './sdk';
-import { KeyboardBreathInput } from './input/keyboard';
 import type { BreathInput } from './input/types';
 import { BreathSignal } from './signal';
 import { Calibration, type CalibrationResult } from './calibration';
@@ -40,7 +39,6 @@ type Screen =
  */
 const WARMUP_MIN_MS = 6_000;
 const WARMUP_MAX_MS = 30_000;
-type InputKind = 'camera' | 'keyboard';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const video = document.querySelector<HTMLVideoElement>('#camera')!;
@@ -53,7 +51,6 @@ const scene = new Scene();
 const lantern = new Lantern();
 const highScores = new HighScoreStore();
 const ribbon = new RibbonRecorder();
-const keyboard = new KeyboardBreathInput();
 
 const menu = new Overlay(ui);
 // The menu sits on the scene itself: no dimming or blur.
@@ -82,7 +79,6 @@ function toggleSound(): void {
 
 let screen: Screen = 'menu';
 let modeId: ModeId = 'drift';
-let inputKind: InputKind = 'keyboard';
 let camera: CameraBreathInput | null = null;
 let cameraRunning = false;
 /**
@@ -128,8 +124,7 @@ resize();
 const pxPerMs = (): number => layout.width / 9_000;
 
 /** Calibration delay, so the target the player is scored against is shifted fairly. */
-const delayMs = (): number =>
-  inputKind === 'camera' && lastCalibration?.ok ? lastCalibration.delayMs : 0;
+const delayMs = (): number => (lastCalibration?.ok ? lastCalibration.delayMs : 0);
 
 // ---------------------------------------------------------------- screens
 
@@ -172,19 +167,13 @@ function showMenu(): void {
       title,
       el('p', 'k-lead', 'Breathe the lantern home — a relaxing rhythm game for your breath.'),
       cards,
-      el(
-        'div',
-        'k-actions',
-        cameraButton,
-        button('Play with keyboard', playWithKeyboard, camera ? 'plain' : 'primary'),
-        button('Settings', openSettings, 'ghost'),
-      ),
+      el('div', 'k-actions', cameraButton, button('Settings', openSettings, 'ghost')),
       camera
         ? null
         : el(
             'p',
             'k-note',
-            'Camera play needs a SmartSpectra API key (see the README). Keyboard mode works without one.',
+            'Kuudu needs a free SmartSpectra API key to play. See the README to add one.',
           ),
     ),
   );
@@ -198,7 +187,6 @@ function openSettings(): void {
 
 function playWithCamera(): void {
   menu.close();
-  inputKind = 'camera';
   if (consentGiven) {
     void startCamera();
     return;
@@ -209,14 +197,12 @@ function playWithCamera(): void {
       consentGiven = true;
       void startCamera();
     },
-    onKeyboard: playWithKeyboard,
     onBack: showMenu,
   });
 }
 
 async function startCamera(): Promise<void> {
   if (!camera) return;
-  inputKind = 'camera';
   const session = ++cameraSession;
   try {
     await camera.start();
@@ -241,18 +227,6 @@ async function stopCamera(): Promise<void> {
   if (!camera || !cameraRunning) return;
   cameraRunning = false;
   await camera.stop();
-}
-
-async function playWithKeyboard(): Promise<void> {
-  menu.close();
-  consent.hide();
-  inputKind = 'keyboard';
-  await stopCamera();
-  signal.reset();
-  signal.setInvert(false);
-  signal.setMinRange(0.5);
-  await keyboard.start();
-  startRun(performance.now());
 }
 
 /** When warm-up began (performance.now()), and whether the SDK has reported a stable sample. */
@@ -293,10 +267,6 @@ function finishCalibration(now: number): void {
         'div',
         'k-actions',
         button('Try again', startCalibration, 'primary'),
-        button('Play with keyboard', () => {
-          failedCard.close();
-          void playWithKeyboard();
-        }),
         button('Back', () => void stopEverything(), 'ghost'),
       ),
     ),
@@ -311,8 +281,6 @@ function startRun(now: number): void {
   ribbon.clear();
   paceReadings = [];
   runMs = 0;
-  // A focused button would also react to Space in keyboard mode.
-  (document.activeElement as HTMLElement | null)?.blur();
   const first = plan.apply(0, wave, gates);
   banner = first ? { text: bannerText(first.index, first.level.name), atMs: now } : null;
   screen = 'playing';
@@ -330,8 +298,7 @@ async function endRun(now: number): Promise<void> {
   audio.stop();
   const summary = scoring.summary();
   const best = highScores.best(modeId);
-  // Only breath (camera) runs count toward the best score; keyboard mode is a fallback.
-  const newBest = inputKind === 'camera' && highScores.submit(modeId, summary.score);
+  const newBest = highScores.submit(modeId, summary.score);
   console.log('[run]', summary);
   endScreen.show(
     {
@@ -339,7 +306,6 @@ async function endRun(now: number): Promise<void> {
       summary,
       newBest,
       best: newBest ? null : best,
-      keyboard: inputKind === 'keyboard',
       ribbon: ribbon.data,
       pace: paceSummary(),
     },
@@ -347,8 +313,7 @@ async function endRun(now: number): Promise<void> {
     {
       onPlayAgain: () => {
         endScreen.hide();
-        if (inputKind === 'camera') void startCamera();
-        else void playWithKeyboard();
+        void startCamera();
       },
       onDone: () => {
         endScreen.hide();
@@ -358,13 +323,12 @@ async function endRun(now: number): Promise<void> {
       },
     },
   );
-  // The input stops as soon as a run ends; for the camera, that turns it off.
-  await keyboard.stop();
+  // The camera turns off as soon as a run ends.
   await stopCamera();
 }
 
 function paceSummary(): { breathsPerMinute: number; target: string } | null {
-  if (inputKind !== 'camera' || paceReadings.length === 0) return null;
+  if (paceReadings.length === 0) return null;
   const average = paceReadings.reduce((a, b) => a + b, 0) / paceReadings.length;
   const targets = plan.mode.levels.map((l) => l.bpm);
   const target =
@@ -397,10 +361,6 @@ async function cameraStopped(message: string): Promise<void> {
           },
           'primary',
         ),
-        button('Play with keyboard', () => {
-          failedCard.close();
-          void playWithKeyboard();
-        }),
         button('Back', () => void stopEverything(), 'ghost'),
       ),
     ),
@@ -418,7 +378,6 @@ async function stopEverything(): Promise<void> {
   paceReadings = [];
   signal.reset();
   audio.stop();
-  await keyboard.stop();
   await stopCamera();
   showMenu();
 }
@@ -530,8 +489,7 @@ function render(now: number, dtMs: number): void {
 
   stats.textContent = showDebug
     ? [
-        `input:          ${inputKind}`,
-        `breathing rate: ${inputKind === 'camera' ? rateText : '–'}`,
+        `breathing rate: ${rateText}`,
         `calibration:    ${calibrationText()}`,
         `glow ${scoring.glow.toFixed(2)} · flicker ${scoring.flicker.toFixed(2)}`,
         'D = toggle debug · Esc = stop',
@@ -539,7 +497,7 @@ function render(now: number, dtMs: number): void {
     : '';
 }
 
-/** Score, streak, level and time left, top right; the level banner; keyboard reminder. */
+/** Score, streak, level and time left, top right; and the level banner. */
 function drawHud(now: number): void {
   const l = layout;
   const s = l.scale;
@@ -564,14 +522,6 @@ function drawHud(now: number): void {
   );
 
   ctx.textAlign = 'center';
-  if (inputKind === 'keyboard') {
-    ctx.fillStyle = 'rgba(245, 230, 200, 0.75)';
-    ctx.fillText(
-      'Hold Space (or ↑) to breathe in · release to breathe out',
-      l.width / 2,
-      l.height - 28 * s,
-    );
-  }
 
   if (banner) {
     const age = now - banner.atMs;
@@ -691,24 +641,20 @@ const loop = new GameLoop({
 
 function attach(input: BreathInput): void {
   input.on('samples', (batch) => {
-    if (input.kind !== inputKind) return;
     signal.push(batch);
     if (screen === 'warming' && batch.some((sample) => sample.stable)) warmup.stableSeen = true;
     if (screen === 'calibrating') calibration.addSamples(batch, performance.now());
   });
-  input.on('hint', (h) => {
-    if (input.kind === inputKind) hints.set(h, performance.now());
-  });
+  input.on('hint', (h) => hints.set(h, performance.now()));
   input.on('error', (e) => {
     const inUse = screen === 'warming' || screen === 'calibrating' || screen === 'playing';
-    if (input.kind === 'camera' && inputKind === 'camera' && inUse) void cameraStopped(e.message);
+    if (inUse) void cameraStopped(e.message);
     else hints.message(e.message, performance.now(), 10_000);
   });
 }
 
 async function init(): Promise<void> {
   loop.start();
-  attach(keyboard);
 
   const apiKey = await window.kuudu.getApiKey();
   if (apiKey) {
@@ -730,7 +676,6 @@ async function init(): Promise<void> {
   });
   window.addEventListener('beforeunload', () => {
     loop.stop();
-    void keyboard.stop();
     camera?.destroy();
   });
 }

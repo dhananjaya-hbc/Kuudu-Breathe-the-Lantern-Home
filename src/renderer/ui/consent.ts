@@ -30,7 +30,8 @@ const FACTS: [string, string][] = [
   ],
   [
     'You are in control',
-    'A “Camera on” badge shows whenever the camera is on. Press Stop or Esc to turn it off at any time. ' +
+    'A “Camera on” badge and a small preview of what the camera sees show whenever it is on. ' +
+      'Press Stop or Esc to turn it off at any time. ' +
       'It also turns off at the end of every run and when you close Kuudu.',
   ],
   [

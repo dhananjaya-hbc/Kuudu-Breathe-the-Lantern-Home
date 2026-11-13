@@ -82,6 +82,16 @@ describe('analyseCalibration', () => {
     if (result.ok) expect(result.invert).toBe(true);
   });
 
+  it('keeps the normal direction when the evidence for flipping is weak', () => {
+    // A flipped-looking but noisy calibration (match between 0.4 and 0.55).
+    const result = analyseCalibration(player({ delayMs: 500, sign: -1, size: 1, noise: 1.2 }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.match).toBeGreaterThanOrEqual(0.4);
+    expect(result.match).toBeLessThan(0.55);
+    expect(result.invert).toBe(false);
+  });
+
   it('fails as not-following when the waveform does not match the guide', () => {
     const result = analyseCalibration(player({ size: 0, noise: 1 }));
     expect(result).toMatchObject({ ok: false, reason: 'not-following' });

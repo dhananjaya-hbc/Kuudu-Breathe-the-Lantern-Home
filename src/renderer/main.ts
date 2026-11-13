@@ -47,7 +47,9 @@ const ribbon = new RibbonRecorder();
 const keyboard = new KeyboardBreathInput();
 
 const menu = new Overlay(ui);
+// The menu sits on the scene itself: no dimming or blur.
 menu.root.style.background = 'transparent';
+menu.root.style.backdropFilter = 'none';
 const failedCard = new Overlay(ui);
 const consent = new ConsentScreen(ui);
 const settings = new SettingsScreen(ui, highScores);
@@ -442,7 +444,14 @@ function render(now: number, dtMs: number): void {
   const l = layout;
   const inRun = screen === 'playing' || screen === 'ended';
   const glow = inRun ? scoring.glow : 0.5;
-  scene.draw(ctx, l, { scrollPx, glow, streak: inRun ? scoring.streak : 0, timeMs: now });
+  // On menu screens the lantern is centred, so its light on the water is too.
+  const onMenu = screen === 'menu' || screen === 'consent' || screen === 'settings';
+  scene.draw(ctx, onMenu ? { ...l, lanternX: l.width / 2 } : l, {
+    scrollPx,
+    glow,
+    streak: inRun ? scoring.streak : 0,
+    timeMs: now,
+  });
 
   const lanternState = { glow, flicker: 0, paused: false, timeMs: now };
   if (screen === 'playing' || screen === 'failed') {
@@ -467,8 +476,13 @@ function render(now: number, dtMs: number): void {
     );
     endScreen.draw(ctx, l, now);
   } else if (screen !== 'calibrating') {
-    // Menu, consent, settings: the lantern floats gently behind the screen.
-    lantern.draw(ctx, l, { ...lanternState, height: 0.55 + 0.12 * Math.sin(now / 2_400) }, dtMs);
+    // Menu, consent, settings: the lantern floats gently, centred above the title.
+    lantern.draw(
+      ctx,
+      { ...l, lanternX: l.width / 2 },
+      { ...lanternState, height: 0.93 + 0.04 * Math.sin(now / 2_400) },
+      dtMs,
+    );
   }
 
   if (screen === 'playing') drawHud(now);

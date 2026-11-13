@@ -89,6 +89,10 @@ let runMs = 0;
 let scrollPx = 0;
 /** Lantern height when the run ended, for the release animation. */
 let endHeight = 0.5;
+/** Confident SmartSpectra breathing-rate readings during this run (memory only). */
+let paceReadings: number[] = [];
+/** The SDK treats breathing-rate confidence of 45 or more as reliable. */
+const MIN_RATE_CONFIDENCE = 45;
 /** Level name banner: text and when it appeared. */
 let banner: { text: string; atMs: number } | null = null;
 
@@ -271,6 +275,7 @@ function startRun(now: number): void {
   gates = new GateTrack(wave);
   scoring = new Scoring();
   ribbon.clear();
+  paceReadings = [];
   runMs = 0;
   const first = plan.apply(0, wave, gates);
   banner = first ? { text: bannerText(first.index, first.level.name), atMs: now } : null;
@@ -298,6 +303,7 @@ async function endRun(now: number): Promise<void> {
       newBest,
       best: newBest ? null : best,
       ribbon: ribbon.data,
+      pace: paceSummary(),
     },
     now,
     {
@@ -309,6 +315,7 @@ async function endRun(now: number): Promise<void> {
       onDone: () => {
         endScreen.hide();
         ribbon.clear(); // breathing data is discarded
+        paceReadings = [];
         showMenu();
       },
     },
@@ -318,6 +325,15 @@ async function endRun(now: number): Promise<void> {
   await stopCamera();
 }
 
+function paceSummary(): { breathsPerMinute: number; target: string } | null {
+  if (inputKind !== 'camera' || paceReadings.length === 0) return null;
+  const average = paceReadings.reduce((a, b) => a + b, 0) / paceReadings.length;
+  const targets = plan.mode.levels.map((l) => l.bpm);
+  const target =
+    targets.length > 1 ? `${targets[0]} → ${targets.at(-1)}` : String(targets[0] ?? '');
+  return { breathsPerMinute: average, target };
+}
+
 /** Esc / Stop: end whatever is happening, turn the camera off, back to the menu. */
 async function stopEverything(): Promise<void> {
   consent.hide();
@@ -325,6 +341,7 @@ async function stopEverything(): Promise<void> {
   failedCard.close();
   endScreen.hide();
   ribbon.clear();
+  paceReadings = [];
   signal.reset();
   audio.stop();
   await keyboard.stop();
@@ -562,6 +579,9 @@ async function init(): Promise<void> {
     camera = new CameraBreathInput(apiKey, video);
     attach(camera);
     camera.on('rate', (r) => {
+      if (screen === 'playing' && !hints.paused && r.confidence >= MIN_RATE_CONFIDENCE) {
+        paceReadings.push(r.breathsPerMinute);
+      }
       rateText = `${r.breathsPerMinute.toFixed(1)} br/min (confidence ${r.confidence.toFixed(0)})`;
     });
   }

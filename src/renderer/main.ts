@@ -74,6 +74,12 @@ let modeId: ModeId = 'drift';
 let inputKind: InputKind = 'keyboard';
 let camera: CameraBreathInput | null = null;
 let cameraRunning = false;
+/**
+ * Increases every time the camera is asked to start or stop. A start that
+ * finishes after Stop/Esc was pressed sees a newer session and turns the
+ * camera straight back off, so Stop always wins.
+ */
+let cameraSession = 0;
 let consentGiven = false;
 let showDebug = false;
 let lastCalibration: CalibrationResult | null = null;
@@ -200,8 +206,14 @@ function playWithCamera(): void {
 async function startCamera(): Promise<void> {
   if (!camera) return;
   inputKind = 'camera';
+  const session = ++cameraSession;
   try {
     await camera.start();
+    if (session !== cameraSession) {
+      // Stop was pressed while the camera was starting.
+      await camera.stop();
+      return;
+    }
     cameraRunning = true;
     indicator.on = true;
     startCalibration();
@@ -213,6 +225,7 @@ async function startCamera(): Promise<void> {
 }
 
 async function stopCamera(): Promise<void> {
+  cameraSession++;
   indicator.on = false;
   if (!camera || !cameraRunning) return;
   cameraRunning = false;
@@ -277,6 +290,8 @@ function startRun(now: number): void {
   ribbon.clear();
   paceReadings = [];
   runMs = 0;
+  // A focused button would also react to Space in keyboard mode.
+  (document.activeElement as HTMLElement | null)?.blur();
   const first = plan.apply(0, wave, gates);
   banner = first ? { text: bannerText(first.index, first.level.name), atMs: now } : null;
   screen = 'playing';

@@ -39,6 +39,8 @@ type Screen =
  */
 const WARMUP_MIN_MS = 6_000;
 const WARMUP_MAX_MS = 30_000;
+/** How long the "Press F" note shows at the start of each run. */
+const FLIP_HINT_MS = 20_000;
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const video = document.querySelector<HTMLVideoElement>('#camera')!;
@@ -171,7 +173,7 @@ function showMenu(): void {
       'div',
       'k-menu',
       title,
-      el('p', 'k-lead', 'Breathe the lantern home — a relaxing rhythm game for your breath.'),
+      el('p', 'k-lead', 'Breathe the lantern home - a relaxing rhythm game for your breath.'),
       cards,
       el('div', 'k-actions', cameraButton, button('Settings', openSettings, 'ghost')),
       camera
@@ -531,6 +533,13 @@ function drawHud(now: number): void {
 
   ctx.textAlign = 'center';
 
+  // Early in each run, offer the quick fix if the lantern moves the wrong way.
+  if (runMs < FLIP_HINT_MS) {
+    ctx.fillStyle = 'rgba(245, 230, 200, 0.75)';
+    ctx.font = `${15 * s}px system-ui, sans-serif`;
+    ctx.fillText('Lantern moving the wrong way? Press F', l.width / 2, l.height - 28 * s);
+  }
+
   if (banner) {
     const age = now - banner.atMs;
     const alpha = age < 400 ? age / 400 : Math.max(0, 1 - (age - 2_200) / 800);
@@ -615,8 +624,8 @@ function drawCalibration(now: number): void {
 
   const labels = {
     ready: 'Get ready… breathe normally',
-    in: 'Breathe in',
-    out: 'Breathe out',
+    in: 'Breathe in as the light rises',
+    out: 'Breathe out as it falls',
     done: '',
   };
   ctx.fillStyle = '#f5e6c8';
@@ -681,6 +690,10 @@ async function init(): Promise<void> {
     if (e.key === 'Escape') void stopEverything();
     if (e.key === 'd' || e.key === 'D') showDebug = !showDebug;
     if (e.key === 'm' || e.key === 'M') toggleSound();
+    if ((e.key === 'f' || e.key === 'F') && screen === 'playing') {
+      signal.setInvert(!signal.options.invert);
+      banner = { text: 'Lantern direction flipped', atMs: performance.now() };
+    }
     if (e.key === 'v' || e.key === 'V') {
       showPreview = !showPreview;
       updatePreview();

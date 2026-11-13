@@ -73,6 +73,20 @@ describe('BreathSignal', () => {
     expect(Math.max(...heights)).toBeGreaterThan(0.85);
   });
 
+  it('keeps breaths full-size after a sudden spike (cough, shifting in the chair)', () => {
+    const signal = new BreathSignal();
+    // Normal breaths of size 1, with one short spike 8 times bigger at 20 s.
+    const spike = (t: number): number => (t > 20_000 && t < 20_300 ? 8 : 0);
+    const samples = generate(40_000, (t) => breath(t) + spike(t));
+    signal.push(samples);
+
+    // The breaths in the 10 s right after the spike must still use most of the range.
+    const end = samples[0]!.timeMs + 31_000;
+    const after = [...signal.history].filter((p) => p.timeMs > end - 10_000 && p.timeMs <= end);
+    const heights = after.map((p) => p.height);
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThan(0.6);
+  });
+
   it('always stays within 0–1', () => {
     const signal = new BreathSignal();
     signal.push(generate(20_000, (t) => breath(t) * (t > 10_000 ? 20 : 1)));

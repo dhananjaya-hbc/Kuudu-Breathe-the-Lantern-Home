@@ -8,8 +8,8 @@ export const GET_API_KEY_CHANNEL = 'kuudu:get-api-key';
 export interface KuuduApi {
   /**
    * Returns the SmartSpectra API key read from `.env` by the main process,
-   * or an empty string when no key is configured (the game then offers
-   * keyboard mode). The key is never part of the renderer bundle.
+   * or an empty string when no key is configured (the menu then explains how
+   * to add one). The key is never part of the renderer bundle.
    */
   getApiKey(): Promise<string>;
 }
